@@ -14,6 +14,8 @@ import software.amazon.awssdk.services.cloudtrail.CloudTrailClient;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -79,8 +81,9 @@ public class AwsIngestionService {
         }
 
         try {
-            return objectMapper.readValue(cloudTrailEvent, new TypeReference<>() {
+            Map<String, Object> rawPayload = objectMapper.readValue(cloudTrailEvent, new TypeReference<>() {
             });
+            return normalizePayload(event, rawPayload);
         } catch (Exception ex) {
             log.warn("Failed to parse CloudTrail payload for event {}", event.eventId(), ex);
             return Map.of("rawEvent", cloudTrailEvent);
@@ -152,5 +155,177 @@ public class AwsIngestionService {
                 ? message.substring(0, 1024)
                 : message);
         cloudAccountRepository.save(account);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> normalizePayload(software.amazon.awssdk.services.cloudtrail.model.Event event,
+                                                 Map<String, Object> rawPayload) {
+        Map<String, Object> payload = new LinkedHashMap<>(rawPayload);
+
+        payload.putIfAbsent("eventName", event.eventName());
+        payload.putIfAbsent("sourceIp", readString(rawPayload, List.of("sourceIPAddress")));
+
+        switch (event.eventName()) {
+            case "AuthorizeSecurityGroupIngress" -> normalizeSecurityGroupIngress(payload, rawPayload);
+            case "PutBucketAcl" -> normalizeBucketAcl(payload, rawPayload);
+            case "PutBucketPolicy" -> normalizeBucketPolicy(payload, rawPayload);
+            case "PutBucketEncryption" -> normalizeBucketEncryption(payload, rawPayload);
+            case "AttachUserPolicy" -> normalizeAttachUserPolicy(payload, rawPayload);
+            case "ConsoleLogin" -> normalizeConsoleLogin(payload, rawPayload);
+            case "RunInstances" -> normalizeRunInstances(payload, rawPayload);
+            default -> {
+                // Leave raw CloudTrail payload as-is for other event types.
+            }
+        }
+
+        return payload;
+    }
+
+    private void normalizeSecurityGroupIngress(Map<String, Object> payload, Map<String, Object> rawPayload) {
+        payload.putIfAbsent("port", readInteger(rawPayload, List.of(
+                "requestParameters.ipPermissions.items.0.fromPort",
+                "requestParameters.ipPermissions.items.0.toPort"
+        )));
+        payload.putIfAbsent("fromPort", readInteger(rawPayload, List.of(
+                "requestParameters.ipPermissions.items.0.fromPort"
+        )));
+        payload.putIfAbsent("toPort", readInteger(rawPayload, List.of(
+                "requestParameters.ipPermissions.items.0.toPort"
+        )));
+        payload.putIfAbsent("cidr", readString(rawPayload, List.of(
+                "requestParameters.ipPermissions.items.0.ipRanges.items.0.cidrIp"
+        )));
+        payload.putIfAbsent("protocol", readString(rawPayload, List.of(
+                "requestParameters.ipPermissions.items.0.ipProtocol"
+        )));
+    }
+
+    private void normalizeBucketAcl(Map<String, Object> payload, Map<String, Object> rawPayload) {
+        payload.putIfAbsent("acl", readString(rawPayload, List.of("requestParameters.x-amz-acl")));
+        payload.putIfAbsent("bucketName", readString(rawPayload, List.of("requestParameters.bucketName")));
+    }
+
+    private void normalizeBucketPolicy(Map<String, Object> payload, Map<String, Object> rawPayload) {
+        payload.putIfAbsent("bucketName", readString(rawPayload, List.of("requestParameters.bucketName")));
+        String policyDocument = readString(rawPayload, List.of("requestParameters.bucketPolicy"));
+        if (policyDocument == null || policyDocument.isBlank()) {
+            return;
+        }
+
+        try {
+            Map<String, Object> policy = objectMapper.readValue(policyDocument, new TypeReference<>() {
+            });
+            payload.putIfAbsent("policyDocument", policy);
+            Object principal = readValue(policy, "Statement.0.Principal");
+            if (principal instanceof String principalText) {
+                payload.putIfAbsent("principal", principalText);
+            } else if (principal instanceof Map<?, ?> principalMap && principalMap.containsKey("AWS")) {
+                payload.putIfAbsent("principal", String.valueOf(principalMap.get("AWS")));
+            }
+        } catch (Exception ex) {
+            payload.putIfAbsent("policyDocument", policyDocument);
+        }
+    }
+
+    private void normalizeBucketEncryption(Map<String, Object> payload, Map<String, Object> rawPayload) {
+        payload.putIfAbsent("bucketName", readString(rawPayload, List.of("requestParameters.bucketName")));
+        String encryptionEnabled = readString(rawPayload, List.of(
+                "requestParameters.serverSideEncryptionConfiguration.rules.0.applyServerSideEncryptionByDefault.sseAlgorithm"
+        ));
+        payload.putIfAbsent("encryption", encryptionEnabled == null || encryptionEnabled.isBlank() ? "false" : "true");
+    }
+
+    private void normalizeAttachUserPolicy(Map<String, Object> payload, Map<String, Object> rawPayload) {
+        String policyArn = readString(rawPayload, List.of("requestParameters.policyArn"));
+        if (policyArn != null && !policyArn.isBlank()) {
+            int index = policyArn.lastIndexOf('/');
+            payload.putIfAbsent("policy", index >= 0 ? policyArn.substring(index + 1) : policyArn);
+        }
+    }
+
+    private void normalizeConsoleLogin(Map<String, Object> payload, Map<String, Object> rawPayload) {
+        String arn = readString(rawPayload, List.of("userIdentity.arn"));
+        if (arn != null && arn.contains(":root")) {
+            payload.putIfAbsent("user", "root");
+            return;
+        }
+
+        String userName = readString(rawPayload, List.of("userIdentity.userName"));
+        if (userName != null && !userName.isBlank()) {
+            payload.putIfAbsent("user", userName);
+        }
+    }
+
+    private void normalizeRunInstances(Map<String, Object> payload, Map<String, Object> rawPayload) {
+        payload.putIfAbsent("instanceType", readString(rawPayload, List.of(
+                "requestParameters.instanceType"
+        )));
+
+        Object tagItems = readValue(rawPayload, "requestParameters.tagSpecificationSet.items.0.tags");
+        boolean hasTags = tagItems instanceof List<?> list && !list.isEmpty();
+        payload.putIfAbsent("hasTag", hasTags ? "true" : "false");
+    }
+
+    private String readString(Map<String, Object> payload, List<String> keys) {
+        for (String key : keys) {
+            Object value = readValue(payload, key);
+            if (value == null) {
+                continue;
+            }
+            String text = String.valueOf(value);
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+        return null;
+    }
+
+    private Integer readInteger(Map<String, Object> payload, List<String> keys) {
+        for (String key : keys) {
+            Object value = readValue(payload, key);
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            if (value instanceof String text && !text.isBlank()) {
+                try {
+                    return Integer.parseInt(text);
+                } catch (NumberFormatException ignored) {
+                    // Keep checking fallbacks.
+                }
+            }
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object readValue(Map<String, Object> payload, String path) {
+        Object current = payload;
+
+        for (String part : path.split("\\.")) {
+            if (current instanceof Map<?, ?> map) {
+                current = ((Map<String, Object>) map).get(part);
+                continue;
+            }
+
+            if (current instanceof List<?> list) {
+                int index;
+                try {
+                    index = Integer.parseInt(part);
+                } catch (NumberFormatException ex) {
+                    return null;
+                }
+
+                if (index < 0 || index >= list.size()) {
+                    return null;
+                }
+
+                current = list.get(index);
+                continue;
+            }
+
+            return null;
+        }
+
+        return current;
     }
 }
