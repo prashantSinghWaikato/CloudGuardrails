@@ -30,6 +30,14 @@ export const activateAccount = async (id: number, data: AccountActivationFormDat
     return (await res.json()) as CloudAccount;
 };
 
+export const scanAccount = async (id: number) => {
+    const res = await apiFetch(`/accounts/${id}/scan`, {
+        method: "POST",
+    });
+    if (!res.ok) throw new Error(await readApiError(res, "Failed to scan account"));
+    return (await res.json()) as CloudAccount;
+};
+
 export const updateAccount = async (id: number, data: AccountFormData) => {
     const res = await apiFetch(`/accounts/${id}`, {
         method: "PUT",

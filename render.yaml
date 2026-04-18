@@ -52,6 +52,8 @@ services:
         sync: false
       - key: GUARDRAILS_POLLING_ENABLED
         value: "true"
+      - key: GUARDRAILS_POLLING_FIXED_RATE_MS
+        value: "3600000"
       - key: CORS_ALLOWED_ORIGIN_PATTERNS
         sync: false
   - type: web

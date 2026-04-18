@@ -4,6 +4,7 @@ import {
     createAccount,
     updateAccount,
     activateAccount,
+    scanAccount,
     deleteAccount,
 } from "../api/accountApi";
 import AccountModal from "../components/AccountModal";
@@ -17,6 +18,7 @@ const Accounts = () => {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<CloudAccount | null>(null);
     const [activationTarget, setActivationTarget] = useState<CloudAccount | null>(null);
+    const [scanTargetId, setScanTargetId] = useState<number | null>(null);
 
     const load = async () => {
         try {
@@ -52,6 +54,18 @@ const Accounts = () => {
     const handleActivate = async (accountId: number, data: AccountActivationFormData) => {
         await activateAccount(accountId, data);
         await load();
+    };
+
+    const handleScan = async (accountId: number) => {
+        try {
+            setScanTargetId(accountId);
+            await scanAccount(accountId);
+            await load();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setScanTargetId(null);
+        }
     };
 
     const renderStatus = (account: CloudAccount) => {
@@ -132,14 +146,7 @@ const Accounts = () => {
                                         <td className="px-4 py-4 text-gray-300">{a.provider}</td>
                                         <td className="px-4 py-4 text-gray-300">{a.region}</td>
                                         <td className="px-4 py-4">
-                                            <div className="space-y-2">
-                                                {renderStatus(a)}
-                                                <div className="text-xs text-gray-500">
-                                                    {a.activationMethod
-                                                        ? `Method: ${a.activationMethod}`
-                                                        : "Activation required"}
-                                                </div>
-                                            </div>
+                                            {renderStatus(a)}
                                         </td>
                                         <td className="px-4 py-4">
                                             <div className="space-y-1 text-xs">
@@ -148,16 +155,19 @@ const Accounts = () => {
                                                         ? new Date(a.lastSyncAt).toLocaleString()
                                                         : "Never"}
                                                 </div>
-                                                {a.lastSyncStatus && (
-                                                    <div className="text-gray-500">
-                                                        {a.lastSyncStatus}: {a.lastSyncMessage ?? "No details"}
-                                                    </div>
-                                                )}
                                             </div>
                                         </td>
 
                                         <td className="px-4 py-4">
                                             <div className="flex items-center justify-end gap-3">
+                                                <button
+                                                    onClick={() => handleScan(a.id)}
+                                                    disabled={!a.monitoringEnabled || scanTargetId === a.id}
+                                                    className="text-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
+                                                >
+                                                    {scanTargetId === a.id ? "Scanning..." : "Scan Now"}
+                                                </button>
+
                                                 <button
                                                     onClick={() => setActivationTarget(a)}
                                                     className="text-emerald-400 hover:text-emerald-300"

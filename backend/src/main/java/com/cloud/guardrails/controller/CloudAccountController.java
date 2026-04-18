@@ -33,6 +33,11 @@ public class CloudAccountController {
         return service.activate(id, request);
     }
 
+    @PostMapping("/{id}/scan")
+    public AccountResponse scan(@PathVariable Long id) {
+        return service.scan(id);
+    }
+
     // ✅ LIST
     @GetMapping
     public List<AccountResponse> getAll() {

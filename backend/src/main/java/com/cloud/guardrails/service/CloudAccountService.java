@@ -1,6 +1,7 @@
 package com.cloud.guardrails.service;
 
 import com.cloud.guardrails.aws.AwsAccountValidationService;
+import com.cloud.guardrails.aws.AwsIngestionService;
 import com.cloud.guardrails.dto.AccountActivationRequest;
 import com.cloud.guardrails.dto.AccountRequest;
 import com.cloud.guardrails.dto.AccountResponse;
@@ -30,6 +31,7 @@ public class CloudAccountService {
     private final UserRepository userRepository;
     private final CredentialCryptoService credentialCryptoService;
     private final AwsAccountValidationService awsAccountValidationService;
+    private final AwsIngestionService awsIngestionService;
     private final NotificationService notificationService;
 
     // ✅ CREATE ACCOUNT
@@ -201,6 +203,21 @@ public class CloudAccountService {
         repository.save(account);
 
         return map(account);
+    }
+
+    public AccountResponse scan(Long id) {
+        Long orgId = UserContext.getOrgId();
+
+        CloudAccount account = repository
+                .findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new NotFoundException("Account not found"));
+
+        if (!Boolean.TRUE.equals(account.getMonitoringEnabled())) {
+            throw new IllegalArgumentException("Activate monitoring before running a manual scan");
+        }
+
+        awsIngestionService.ingest(account);
+        return map(repository.findById(account.getId()).orElse(account));
     }
 
     private void validateNameAndAccountUniqueness(AccountRequest request, Long orgId, Long currentId) {

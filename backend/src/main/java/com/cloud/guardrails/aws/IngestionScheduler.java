@@ -17,7 +17,7 @@ public class IngestionScheduler {
     private final AwsIngestionService awsIngestionService;
     private final CloudAccountRepository accountRepository;
 
-    @Scheduled(fixedRate = 30000)
+    @Scheduled(fixedRateString = "${ingestion.polling.fixed-rate-ms:3600000}")
     public void run() {
         List<CloudAccount> accounts = accountRepository.findByProviderIgnoreCaseAndMonitoringEnabledTrue("AWS");
 
