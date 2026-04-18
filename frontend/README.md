@@ -111,6 +111,26 @@ Default development URL:
 http://localhost:5173
 ```
 
+## Deployment on Render
+
+The frontend can be deployed as a Render static site with:
+
+- root directory: `frontend`
+- build command: `npm ci && npm run build`
+- publish directory: `dist`
+
+Required environment variable:
+
+- `VITE_API_BASE_URL`
+
+For a Render-hosted backend, set `VITE_API_BASE_URL` to the public backend URL, for example:
+
+```text
+https://cloudguardrails-api.onrender.com
+```
+
+The repository-level [render.yaml](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/render.yaml:1) includes a starting static-site definition for this frontend.
+
 ## Route Model
 
 The frontend currently exposes:

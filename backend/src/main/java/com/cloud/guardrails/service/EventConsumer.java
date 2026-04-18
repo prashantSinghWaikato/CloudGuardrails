@@ -7,6 +7,7 @@ import com.cloud.guardrails.entity.Organization;
 import com.cloud.guardrails.repository.EventRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,8 @@ public class EventConsumer {
     private final ObjectMapper objectMapper;
     private final OrganizationService organizationService;
     private final CloudAccountService cloudAccountService;
+    @Value("${app.kafka.topic}")
+    private String eventTopicName;
 
     public EventConsumer(EventRepository eventRepository,
                          ViolationService violationService,
@@ -34,7 +37,10 @@ public class EventConsumer {
         this.cloudAccountService = cloudAccountService;
     }
 
-    @KafkaListener(topics = "events-topic", groupId = "guardrails-group")
+    @KafkaListener(
+            topics = "${app.kafka.topic}",
+            groupId = "${KAFKA_GROUP_ID:guardrails-group}"
+    )
     public void consume(String message) {
 
         try {
@@ -93,7 +99,7 @@ public class EventConsumer {
             );
 
         } catch (Exception e) {
-            log.error("Error processing Kafka event: {}", message, e);
+            log.error("Error processing Kafka event on topic {}: {}", eventTopicName, message, e);
         }
     }
 }

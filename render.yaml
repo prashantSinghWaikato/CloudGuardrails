@@ -1,0 +1,71 @@
+services:
+  - type: web
+    name: cloudguardrails-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: cloudguardrails-db
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: cloudguardrails-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: cloudguardrails-db
+          property: password
+      - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: KAFKA_SECURITY_PROTOCOL
+        value: SSL
+      - key: KAFKA_SSL_KEYSTORE_TYPE
+        value: PKCS12
+      - key: KAFKA_SSL_TRUSTSTORE_TYPE
+        value: JKS
+      - key: KAFKA_SSL_KEYSTORE_LOCATION
+        value: /etc/secrets/client.keystore.p12
+      - key: KAFKA_SSL_TRUSTSTORE_LOCATION
+        value: /etc/secrets/client.truststore.jks
+      - key: KAFKA_SSL_KEYSTORE_PASSWORD
+        sync: false
+      - key: KAFKA_SSL_KEY_PASSWORD
+        sync: false
+      - key: KAFKA_SSL_TRUSTSTORE_PASSWORD
+        sync: false
+      - key: KAFKA_TOPIC
+        value: events-topic
+      - key: KAFKA_GROUP_ID
+        value: guardrails-group
+      - key: JWT_SECRET
+        sync: false
+      - key: GUARDRAILS_ENCRYPTION_SECRET
+        sync: false
+      - key: GUARDRAILS_INGESTION_SECRET
+        sync: false
+      - key: GUARDRAILS_POLLING_ENABLED
+        value: "false"
+      - key: CORS_ALLOWED_ORIGIN_PATTERNS
+        sync: false
+  - type: web
+    name: cloudguardrails-ui
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+
+databases:
+  - name: cloudguardrails-db
+    databaseName: cloud_guardrails
+    user: cloudguardrails
+    plan: free
+    postgresMajorVersion: "17"

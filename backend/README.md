@@ -123,6 +123,76 @@ The service will be available at:
 http://localhost:8081
 ```
 
+## Deployment on Render with Aiven Kafka
+
+This backend is now configured to deploy cleanly to Render while using:
+
+- Render Postgres for relational storage
+- Aiven Free Kafka for managed Kafka
+- Render secret files for Kafka TLS materials
+
+### Required Environment Variables
+
+#### Database
+
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+
+#### Kafka
+
+- `SPRING_KAFKA_BOOTSTRAP_SERVERS`
+- `KAFKA_TOPIC`
+- `KAFKA_GROUP_ID`
+- `KAFKA_SECURITY_PROTOCOL`
+- `KAFKA_SSL_KEYSTORE_TYPE`
+- `KAFKA_SSL_KEYSTORE_LOCATION`
+- `KAFKA_SSL_KEYSTORE_PASSWORD`
+- `KAFKA_SSL_KEY_PASSWORD`
+- `KAFKA_SSL_TRUSTSTORE_TYPE`
+- `KAFKA_SSL_TRUSTSTORE_LOCATION`
+- `KAFKA_SSL_TRUSTSTORE_PASSWORD`
+
+#### Application Secrets
+
+- `JWT_SECRET`
+- `GUARDRAILS_ENCRYPTION_SECRET`
+- `GUARDRAILS_INGESTION_SECRET`
+- `CORS_ALLOWED_ORIGIN_PATTERNS`
+
+### Render Secret Files
+
+Render secret files are available at runtime under `/etc/secrets`. For Aiven's Java client flow, upload:
+
+- `client.keystore.p12`
+- `client.truststore.jks`
+
+Then set:
+
+```text
+KAFKA_SSL_KEYSTORE_LOCATION=/etc/secrets/client.keystore.p12
+KAFKA_SSL_TRUSTSTORE_LOCATION=/etc/secrets/client.truststore.jks
+KAFKA_SECURITY_PROTOCOL=SSL
+```
+
+### Aiven Java TLS Setup
+
+According to Aiven's Java Kafka documentation, Java clients typically connect by creating:
+
+- a PKCS12 keystore from `service.key` and `service.cert`
+- a JKS truststore from `ca.pem`
+
+Reference:
+
+- https://aiven.io/docs/products/kafka/howto/keystore-truststore
+- https://aiven.io/docs/products/kafka/howto/connect-with-java
+
+### Deployment Assets
+
+- Render blueprint: [../render.yaml](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/render.yaml:1)
+- Backend image definition: [Dockerfile](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/Dockerfile:1)
+- Backend environment template: [.env.example](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/.env.example:1)
+
 ## Database and Migrations
 
 Database migrations are managed through Flyway and stored under:

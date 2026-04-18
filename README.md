@@ -142,6 +142,56 @@ Frontend development URL:
 http://localhost:5173
 ```
 
+## Recommended Low-Cost Deployment
+
+The most practical hosted setup for this repository is:
+
+- frontend on Render Static Site
+- backend on Render Web Service
+- database on Render Postgres
+- Kafka on Aiven Free Kafka
+
+This keeps the application close to its current architecture while avoiding AWS infrastructure overhead.
+
+### Deployment Components
+
+#### Backend
+
+- deploy [backend/Dockerfile](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/Dockerfile:1) as a Render web service
+- supply database credentials from Render Postgres
+- supply Kafka bootstrap and TLS settings from Aiven
+- upload Aiven Java truststore and keystore as Render secret files
+
+#### Frontend
+
+- deploy the `frontend` directory as a Render static site
+- set `VITE_API_BASE_URL` to the backend public URL
+
+#### Database
+
+- provision a Render Postgres instance in the same region as the backend
+- use the internal Render connection string for `SPRING_DATASOURCE_URL`
+
+#### Kafka
+
+- provision an Aiven Free Kafka service
+- create Java client credentials using Aiven's SSL workflow
+- provide:
+  - bootstrap server host and port
+  - keystore and truststore passwords
+  - the generated `client.keystore.p12`
+  - the generated `client.truststore.jks`
+
+### Render Blueprint
+
+This repository now includes [render.yaml](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/render.yaml:1) as a starting point for:
+
+- a backend web service
+- a frontend static site
+- a Render Postgres database
+
+Sensitive values are intentionally left as `sync: false` so they can be entered securely in the Render dashboard during first deploy.
+
 ## Build and Verification
 
 ### Backend
