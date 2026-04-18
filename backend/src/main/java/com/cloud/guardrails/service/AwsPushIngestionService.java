@@ -25,7 +25,7 @@ public class AwsPushIngestionService {
     };
 
     private final CloudAccountService cloudAccountService;
-    private final EventProducer eventProducer;
+    private final EventIngestionService eventIngestionService;
     private final ObjectMapper objectMapper;
 
     @Value("${ingestion.aws.shared-secret}")
@@ -56,7 +56,7 @@ public class AwsPushIngestionService {
             throw new IllegalArgumentException("Unable to resolve AWS event type from event payload");
         }
 
-        eventProducer.sendEvent(event);
+        eventIngestionService.ingest(event);
     }
 
     private void validateSecret(String providedSecret) {
