@@ -11,4 +11,12 @@ public class AccountResponse {
     private String accountId;
     private String provider;
     private String region;
+    private Boolean monitoringEnabled;
+    private String activationStatus;
+    private String activationMethod;
+    private String roleArn;
+    private String lastActivatedAt;
+    private String lastSyncAt;
+    private String lastSyncStatus;
+    private String lastSyncMessage;
 }

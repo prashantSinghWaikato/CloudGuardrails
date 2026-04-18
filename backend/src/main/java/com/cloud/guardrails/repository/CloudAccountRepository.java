@@ -10,6 +10,8 @@ public interface CloudAccountRepository extends JpaRepository<CloudAccount, Long
 
     List<CloudAccount> findByOrganizationId(Long orgId);
 
+    List<CloudAccount> findByProviderIgnoreCaseAndMonitoringEnabledTrue(String provider);
+
     Optional<CloudAccount> findByIdAndOrganizationId(Long id, Long orgId);
 
     List<CloudAccount> findByAccountIdAndProviderIgnoreCase(String accountId, String provider);

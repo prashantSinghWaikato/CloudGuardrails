@@ -108,6 +108,14 @@ export interface CloudAccount {
     accountId: string;
     provider: string;
     region: string;
+    monitoringEnabled: boolean;
+    activationStatus: string;
+    activationMethod: string | null;
+    roleArn: string | null;
+    lastActivatedAt: string | null;
+    lastSyncAt: string | null;
+    lastSyncStatus: string | null;
+    lastSyncMessage: string | null;
 }
 
 export interface AccountFormData {
@@ -126,4 +134,9 @@ export interface AccountValidationResponse {
     arn: string;
     userId: string;
     message: string;
+}
+
+export interface AccountActivationFormData {
+    roleArn: string;
+    externalId: string;
 }

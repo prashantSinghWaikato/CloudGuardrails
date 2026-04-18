@@ -4,7 +4,6 @@ import com.cloud.guardrails.entity.CloudAccount;
 import com.cloud.guardrails.entity.Event;
 import com.cloud.guardrails.entity.Remediation;
 import com.cloud.guardrails.entity.Violation;
-import com.cloud.guardrails.security.CredentialCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.iam.IamClient;
@@ -20,17 +19,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AwsIamRemediationService {
 
-    private final CredentialCryptoService credentialCryptoService;
+    private final AwsClientFactory awsClientFactory;
 
     public void disableAccessKey(Remediation remediation) {
         AccessKeyTarget target = resolveAccessKeyTarget(remediation);
         CloudAccount account = remediation.getViolation().getCloudAccount();
 
-        try (IamClient iamClient = AwsClientFactory.createIamClient(
-                credentialCryptoService.decrypt(account.getAccessKey()),
-                credentialCryptoService.decrypt(account.getSecretKey()),
-                account.getRegion()
-        )) {
+        try (IamClient iamClient = awsClientFactory.createIamClient(account)) {
             iamClient.updateAccessKey(UpdateAccessKeyRequest.builder()
                     .userName(target.userName())
                     .accessKeyId(target.accessKeyId())
@@ -48,11 +43,7 @@ public class AwsIamRemediationService {
 
         CloudAccount account = violation.getCloudAccount();
 
-        try (IamClient iamClient = AwsClientFactory.createIamClient(
-                credentialCryptoService.decrypt(account.getAccessKey()),
-                credentialCryptoService.decrypt(account.getSecretKey()),
-                account.getRegion()
-        )) {
+        try (IamClient iamClient = awsClientFactory.createIamClient(account)) {
             return iamClient.listAccessKeys(ListAccessKeysRequest.builder()
                             .userName(target.userName())
                             .build())

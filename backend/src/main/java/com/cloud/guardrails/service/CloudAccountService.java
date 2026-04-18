@@ -1,6 +1,7 @@
 package com.cloud.guardrails.service;
 
 import com.cloud.guardrails.aws.AwsAccountValidationService;
+import com.cloud.guardrails.dto.AccountActivationRequest;
 import com.cloud.guardrails.dto.AccountRequest;
 import com.cloud.guardrails.dto.AccountResponse;
 import com.cloud.guardrails.dto.AccountValidationResponse;
@@ -49,6 +50,9 @@ public class CloudAccountService {
                 .region(request.getRegion())
                 .accessKey(credentialCryptoService.encrypt(request.getAccessKey()))
                 .secretKey(credentialCryptoService.encrypt(request.getSecretKey()))
+                .monitoringEnabled(false)
+                .activationStatus("PENDING")
+                .activationMethod(null)
                 .organization(org)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -78,6 +82,14 @@ public class CloudAccountService {
                 .accountId(acc.getAccountId())
                 .provider(acc.getProvider())
                 .region(acc.getRegion())
+                .monitoringEnabled(Boolean.TRUE.equals(acc.getMonitoringEnabled()))
+                .activationStatus(acc.getActivationStatus())
+                .activationMethod(acc.getActivationMethod())
+                .roleArn(acc.getRoleArn())
+                .lastActivatedAt(acc.getLastActivatedAt() != null ? acc.getLastActivatedAt().toString() : null)
+                .lastSyncAt(acc.getLastSyncAt() != null ? acc.getLastSyncAt().toString() : null)
+                .lastSyncStatus(acc.getLastSyncStatus())
+                .lastSyncMessage(acc.getLastSyncMessage())
                 .build();
     }
 
@@ -98,6 +110,15 @@ public class CloudAccountService {
         account.setRegion(request.getRegion());
         account.setAccessKey(credentialCryptoService.encrypt(request.getAccessKey()));
         account.setSecretKey(credentialCryptoService.encrypt(request.getSecretKey()));
+        account.setMonitoringEnabled(false);
+        account.setActivationStatus("PENDING");
+        account.setActivationMethod(null);
+        account.setRoleArn(null);
+        account.setExternalId(null);
+        account.setLastActivatedAt(null);
+        account.setLastSyncAt(null);
+        account.setLastSyncStatus(null);
+        account.setLastSyncMessage(null);
 
         repository.save(account);
 
@@ -153,6 +174,33 @@ public class CloudAccountService {
         }
 
         throw new IllegalArgumentException("Unsupported provider: " + request.getProvider());
+    }
+
+    public AccountResponse activate(Long id, AccountActivationRequest request) {
+        Long orgId = UserContext.getOrgId();
+
+        CloudAccount account = repository
+                .findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new NotFoundException("Account not found"));
+
+        AccountValidationResponse validation = awsAccountValidationService.validateActivation(
+                account,
+                request.getRoleArn(),
+                request.getExternalId()
+        );
+
+        account.setRoleArn(request.getRoleArn().trim());
+        account.setExternalId(credentialCryptoService.encrypt(request.getExternalId()));
+        account.setMonitoringEnabled(true);
+        account.setActivationStatus("ACTIVE");
+        account.setActivationMethod("ASSUME_ROLE");
+        account.setLastActivatedAt(LocalDateTime.now());
+        account.setLastSyncStatus("READY");
+        account.setLastSyncMessage(validation.getMessage());
+
+        repository.save(account);
+
+        return map(account);
     }
 
     private void validateNameAndAccountUniqueness(AccountRequest request, Long orgId, Long currentId) {

@@ -4,7 +4,6 @@ import com.cloud.guardrails.entity.CloudAccount;
 import com.cloud.guardrails.entity.Event;
 import com.cloud.guardrails.entity.Remediation;
 import com.cloud.guardrails.entity.Violation;
-import com.cloud.guardrails.security.CredentialCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -20,17 +19,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AwsSecurityGroupRemediationService {
 
-    private final CredentialCryptoService credentialCryptoService;
+    private final AwsClientFactory awsClientFactory;
 
     public void revokeIngress(Remediation remediation) {
         IngressSpec ingressSpec = resolveIngressSpec(remediation);
         CloudAccount account = remediation.getViolation().getCloudAccount();
 
-        try (Ec2Client ec2Client = AwsClientFactory.createEc2Client(
-                credentialCryptoService.decrypt(account.getAccessKey()),
-                credentialCryptoService.decrypt(account.getSecretKey()),
-                account.getRegion()
-        )) {
+        try (Ec2Client ec2Client = awsClientFactory.createEc2Client(account)) {
             ec2Client.revokeSecurityGroupIngress(RevokeSecurityGroupIngressRequest.builder()
                     .groupId(ingressSpec.groupId())
                     .ipPermissions(IpPermission.builder()
@@ -47,11 +42,7 @@ public class AwsSecurityGroupRemediationService {
         IngressSpec ingressSpec = resolveIngressSpec(remediation);
         CloudAccount account = remediation.getViolation().getCloudAccount();
 
-        try (Ec2Client ec2Client = AwsClientFactory.createEc2Client(
-                credentialCryptoService.decrypt(account.getAccessKey()),
-                credentialCryptoService.decrypt(account.getSecretKey()),
-                account.getRegion()
-        )) {
+        try (Ec2Client ec2Client = awsClientFactory.createEc2Client(account)) {
             var response = ec2Client.describeSecurityGroups(DescribeSecurityGroupsRequest.builder()
                     .groupIds(ingressSpec.groupId())
                     .build());

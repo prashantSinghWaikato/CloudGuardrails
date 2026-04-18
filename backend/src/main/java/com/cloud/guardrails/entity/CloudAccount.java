@@ -33,4 +33,22 @@ public class CloudAccount {
     private String accessKey;
 
     private String secretKey;
+
+    private Boolean monitoringEnabled;
+
+    private String activationStatus;
+
+    private String activationMethod;
+
+    private String roleArn;
+
+    private String externalId;
+
+    private LocalDateTime lastActivatedAt;
+
+    private LocalDateTime lastSyncAt;
+
+    private String lastSyncStatus;
+
+    private String lastSyncMessage;
 }

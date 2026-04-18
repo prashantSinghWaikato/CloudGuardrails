@@ -19,11 +19,13 @@ public class IngestionScheduler {
 
     @Scheduled(fixedRate = 30000)
     public void run() {
-        List<CloudAccount> accounts = accountRepository.findAll();
+        List<CloudAccount> accounts = accountRepository.findByProviderIgnoreCaseAndMonitoringEnabledTrue("AWS");
 
         for (CloudAccount acc : accounts) {
-            if ("AWS".equalsIgnoreCase(acc.getProvider())) {
+            try {
                 awsIngestionService.ingest(acc);
+            } catch (Exception ex) {
+                // Continue polling other accounts even if one account fails activation or sync.
             }
         }
     }

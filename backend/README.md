@@ -131,6 +131,14 @@ This backend is now configured to deploy cleanly to Render while using:
 - Aiven Free Kafka for managed Kafka
 - base64-encoded environment variables for Kafka TLS materials
 
+For AWS account onboarding, the preferred runtime model is now:
+
+- add the AWS account with bootstrap credentials
+- activate monitoring with a role ARN and optional external ID
+- let the backend poll CloudTrail on a schedule
+
+This avoids the earlier forwarder-based setup for ongoing monitoring.
+
 ### Required Environment Variables
 
 #### Database
@@ -161,6 +169,7 @@ This backend is now configured to deploy cleanly to Render while using:
 - `GUARDRAILS_ENCRYPTION_SECRET`
 - `GUARDRAILS_INGESTION_SECRET`
 - `CORS_ALLOWED_ORIGIN_PATTERNS`
+- `GUARDRAILS_POLLING_ENABLED`
 
 ### Render Binary Secret Handling
 
@@ -182,6 +191,23 @@ Generate the base64 values with:
 base64 < client.keystore.p12 | tr -d '\n'
 base64 < client.truststore.jks | tr -d '\n'
 ```
+
+### No-Forwarder AWS Activation
+
+The backend now supports a no-forwarder AWS onboarding flow:
+
+1. save the AWS account with validated bootstrap credentials
+2. call `POST /accounts/{id}/activate`
+3. provide:
+   - `roleArn`
+   - optional `externalId`
+4. enable polling with:
+
+```text
+GUARDRAILS_POLLING_ENABLED=true
+```
+
+Once activated, the scheduler polls CloudTrail for AWS accounts with monitoring enabled and records the latest sync status on the account.
 
 ### Aiven Java TLS Setup
 

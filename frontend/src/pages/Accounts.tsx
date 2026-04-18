@@ -3,10 +3,12 @@ import {
     fetchAccounts,
     createAccount,
     updateAccount,
+    activateAccount,
     deleteAccount,
 } from "../api/accountApi";
 import AccountModal from "../components/AccountModal";
-import type { AccountFormData, CloudAccount } from "../types";
+import AccountActivationModal from "../components/AccountActivationModal";
+import type { AccountActivationFormData, AccountFormData, CloudAccount } from "../types";
 
 const Accounts = () => {
     const [accounts, setAccounts] = useState<CloudAccount[]>([]);
@@ -14,6 +16,7 @@ const Accounts = () => {
 
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<CloudAccount | null>(null);
+    const [activationTarget, setActivationTarget] = useState<CloudAccount | null>(null);
 
     const load = async () => {
         try {
@@ -34,14 +37,35 @@ const Accounts = () => {
 
     const handleSave = async (form: AccountFormData) => {
         if (editing) {
-            await updateAccount(editing.id, form);
+            const updated = await updateAccount(editing.id, form);
+            setActivationTarget(updated);
         } else {
-            await createAccount(form);
+            const created = await createAccount(form);
+            setActivationTarget(created);
         }
 
         setOpen(false);
         setEditing(null);
         await load();
+    };
+
+    const handleActivate = async (accountId: number, data: AccountActivationFormData) => {
+        await activateAccount(accountId, data);
+        await load();
+    };
+
+    const renderStatus = (account: CloudAccount) => {
+        const active = account.monitoringEnabled && account.activationStatus === "ACTIVE";
+        const label = active ? "Active" : account.activationStatus ?? "Pending";
+        const classes = active
+            ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+            : "border-amber-500/25 bg-amber-500/10 text-amber-300";
+
+        return (
+            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${classes}`}>
+                {label}
+            </span>
+        );
     };
 
     const handleDelete = async (id: number) => {
@@ -87,6 +111,8 @@ const Accounts = () => {
                                     <th className="px-4 py-3 text-left font-medium">Account ID</th>
                                     <th className="px-4 py-3 text-left font-medium">Provider</th>
                                     <th className="px-4 py-3 text-left font-medium">Region</th>
+                                    <th className="px-4 py-3 text-left font-medium">Monitoring</th>
+                                    <th className="px-4 py-3 text-left font-medium">Last Sync</th>
                                     <th className="px-4 py-3 text-right font-medium">Actions</th>
                                 </tr>
                             </thead>
@@ -105,9 +131,40 @@ const Accounts = () => {
                                         <td className="px-4 py-4 font-medium text-gray-100">{a.accountId}</td>
                                         <td className="px-4 py-4 text-gray-300">{a.provider}</td>
                                         <td className="px-4 py-4 text-gray-300">{a.region}</td>
+                                        <td className="px-4 py-4">
+                                            <div className="space-y-2">
+                                                {renderStatus(a)}
+                                                <div className="text-xs text-gray-500">
+                                                    {a.activationMethod
+                                                        ? `Method: ${a.activationMethod}`
+                                                        : "Activation required"}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <div className="space-y-1 text-xs">
+                                                <div className="text-gray-300">
+                                                    {a.lastSyncAt
+                                                        ? new Date(a.lastSyncAt).toLocaleString()
+                                                        : "Never"}
+                                                </div>
+                                                {a.lastSyncStatus && (
+                                                    <div className="text-gray-500">
+                                                        {a.lastSyncStatus}: {a.lastSyncMessage ?? "No details"}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
 
                                         <td className="px-4 py-4">
                                             <div className="flex items-center justify-end gap-3">
+                                                <button
+                                                    onClick={() => setActivationTarget(a)}
+                                                    className="text-emerald-400 hover:text-emerald-300"
+                                                >
+                                                    {a.monitoringEnabled ? "Re-activate" : "Activate"}
+                                                </button>
+
                                                 <button
                                                     onClick={() => {
                                                         setEditing(a);
@@ -141,6 +198,13 @@ const Accounts = () => {
                 onClose={() => setOpen(false)}
                 onSave={handleSave}
                 initial={editing}
+            />
+
+            <AccountActivationModal
+                open={activationTarget !== null}
+                account={activationTarget}
+                onClose={() => setActivationTarget(null)}
+                onActivate={handleActivate}
             />
         </div>
     );

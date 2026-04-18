@@ -1,5 +1,6 @@
 import { apiFetch, readApiError } from "./api";
 import type {
+    AccountActivationFormData,
     AccountFormData,
     AccountValidationResponse,
     CloudAccount,
@@ -17,6 +18,15 @@ export const createAccount = async (data: AccountFormData) => {
         body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(await readApiError(res, "Failed to create account"));
+    return (await res.json()) as CloudAccount;
+};
+
+export const activateAccount = async (id: number, data: AccountActivationFormData) => {
+    const res = await apiFetch(`/accounts/${id}/activate`, {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await readApiError(res, "Failed to activate account"));
     return (await res.json()) as CloudAccount;
 };
 

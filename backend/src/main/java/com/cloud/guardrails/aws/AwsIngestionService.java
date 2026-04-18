@@ -3,7 +3,6 @@ package com.cloud.guardrails.aws;
 import com.cloud.guardrails.entity.CloudAccount;
 import com.cloud.guardrails.entity.Event;
 import com.cloud.guardrails.repository.EventRepository;
-import com.cloud.guardrails.security.CredentialCryptoService;
 import com.cloud.guardrails.service.ViolationService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,16 +24,13 @@ public class AwsIngestionService {
     private final EventRepository eventRepository;
     private final ViolationService violationService;
     private final ObjectMapper objectMapper;
-    private final CredentialCryptoService credentialCryptoService;
+    private final AwsClientFactory awsClientFactory;
+    private final com.cloud.guardrails.repository.CloudAccountRepository cloudAccountRepository;
 
     public void ingest(CloudAccount account) {
         validateAccount(account);
 
-        try (CloudTrailClient client = AwsClientFactory.create(
-                credentialCryptoService.decrypt(account.getAccessKey()),
-                credentialCryptoService.decrypt(account.getSecretKey()),
-                account.getRegion()
-        )) {
+        try (CloudTrailClient client = awsClientFactory.createCloudTrailClient(account)) {
 
             client.lookupEvents().events().forEach(e -> {
                 try {
@@ -54,6 +50,11 @@ public class AwsIngestionService {
                     log.error("Failed to ingest CloudTrail event for account {}", account.getId(), ex);
                 }
             });
+
+            markSync(account, "SUCCESS", "CloudTrail polling completed successfully");
+        } catch (Exception ex) {
+            markSync(account, "FAILED", ex.getMessage());
+            throw ex;
         }
     }
 
@@ -131,6 +132,10 @@ public class AwsIngestionService {
             );
         }
 
+        if (!Boolean.TRUE.equals(account.getMonitoringEnabled())) {
+            throw new IllegalArgumentException("Cloud account monitoring is not activated: " + account.getId());
+        }
+
         if (account.getOrganization() == null) {
             throw new IllegalArgumentException("Cloud account organization is required");
         }
@@ -138,5 +143,14 @@ public class AwsIngestionService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private void markSync(CloudAccount account, String status, String message) {
+        account.setLastSyncAt(LocalDateTime.now());
+        account.setLastSyncStatus(status);
+        account.setLastSyncMessage(message != null && message.length() > 1024
+                ? message.substring(0, 1024)
+                : message);
+        cloudAccountRepository.save(account);
     }
 }

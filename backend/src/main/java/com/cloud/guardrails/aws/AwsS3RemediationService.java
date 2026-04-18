@@ -4,7 +4,6 @@ import com.cloud.guardrails.entity.CloudAccount;
 import com.cloud.guardrails.entity.Event;
 import com.cloud.guardrails.entity.Remediation;
 import com.cloud.guardrails.entity.Violation;
-import com.cloud.guardrails.security.CredentialCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -19,17 +18,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AwsS3RemediationService {
 
-    private final CredentialCryptoService credentialCryptoService;
+    private final AwsClientFactory awsClientFactory;
 
     public void blockPublicAccess(Remediation remediation) {
         String bucketName = resolveBucketName(remediation);
         CloudAccount account = remediation.getViolation().getCloudAccount();
 
-        try (S3Client s3Client = AwsClientFactory.createS3Client(
-                credentialCryptoService.decrypt(account.getAccessKey()),
-                credentialCryptoService.decrypt(account.getSecretKey()),
-                account.getRegion()
-        )) {
+        try (S3Client s3Client = awsClientFactory.createS3Client(account)) {
             s3Client.putPublicAccessBlock(PutPublicAccessBlockRequest.builder()
                     .bucket(bucketName)
                     .publicAccessBlockConfiguration(PublicAccessBlockConfiguration.builder()
@@ -51,11 +46,7 @@ public class AwsS3RemediationService {
 
         CloudAccount account = violation.getCloudAccount();
 
-        try (S3Client s3Client = AwsClientFactory.createS3Client(
-                credentialCryptoService.decrypt(account.getAccessKey()),
-                credentialCryptoService.decrypt(account.getSecretKey()),
-                account.getRegion()
-        )) {
+        try (S3Client s3Client = awsClientFactory.createS3Client(account)) {
             var config = s3Client.getPublicAccessBlock(GetPublicAccessBlockRequest.builder()
                             .bucket(bucketName)
                             .build())

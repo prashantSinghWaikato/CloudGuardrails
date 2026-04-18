@@ -3,6 +3,8 @@ export type CloudAccount = {
     accountId: string;
     provider: string;
     region: string;
+    monitoringEnabled?: boolean;
+    activationStatus?: string;
 };
 
 export type Organization = {

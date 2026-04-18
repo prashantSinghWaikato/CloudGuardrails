@@ -161,6 +161,7 @@ This keeps the application close to its current architecture while avoiding AWS 
 - supply database credentials from Render Postgres
 - supply Kafka bootstrap and TLS settings from Aiven
 - supply base64-encoded Aiven Java truststore and keystore values as Render environment variables
+- enable scheduler-based AWS monitoring with `GUARDRAILS_POLLING_ENABLED=true`
 
 #### Frontend
 
@@ -181,6 +182,19 @@ This keeps the application close to its current architecture while avoiding AWS 
   - keystore and truststore passwords
   - base64 of `client.keystore.p12`
   - base64 of `client.truststore.jks`
+
+### Forwarder-Free AWS Onboarding
+
+AWS accounts can now be monitored without deploying the earlier AWS forwarder stack.
+
+The intended flow is:
+
+1. add the AWS account with access key and secret key
+2. activate monitoring from the Accounts page
+3. provide a role ARN and optional external ID
+4. let the backend poll AWS CloudTrail on a schedule
+
+This shifts the product toward explicit account activation rather than push-based ingestion setup.
 
 ### Render Blueprint
 

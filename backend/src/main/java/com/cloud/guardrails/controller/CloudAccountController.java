@@ -2,6 +2,7 @@ package com.cloud.guardrails.controller;
 
 import com.cloud.guardrails.dto.AccountRequest;
 import com.cloud.guardrails.dto.AccountResponse;
+import com.cloud.guardrails.dto.AccountActivationRequest;
 import com.cloud.guardrails.dto.AccountValidationResponse;
 import com.cloud.guardrails.service.CloudAccountService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,11 @@ public class CloudAccountController {
     @PostMapping("/validate")
     public AccountValidationResponse validate(@RequestBody AccountRequest request) {
         return service.validate(request);
+    }
+
+    @PostMapping("/{id}/activate")
+    public AccountResponse activate(@PathVariable Long id, @RequestBody AccountActivationRequest request) {
+        return service.activate(id, request);
     }
 
     // ✅ LIST

@@ -51,7 +51,7 @@ services:
       - key: GUARDRAILS_INGESTION_SECRET
         sync: false
       - key: GUARDRAILS_POLLING_ENABLED
-        value: "false"
+        value: "true"
       - key: CORS_ALLOWED_ORIGIN_PATTERNS
         sync: false
   - type: web
