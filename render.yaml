@@ -18,32 +18,6 @@ services:
         fromDatabase:
           name: cloudguardrails-db
           property: password
-      - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
-        sync: false
-      - key: KAFKA_SECURITY_PROTOCOL
-        value: SSL
-      - key: KAFKA_SSL_KEYSTORE_TYPE
-        value: PKCS12
-      - key: KAFKA_SSL_TRUSTSTORE_TYPE
-        value: JKS
-      - key: KAFKA_SSL_KEYSTORE_LOCATION
-        value: /app/secrets/client.keystore.p12
-      - key: KAFKA_SSL_TRUSTSTORE_LOCATION
-        value: /app/secrets/client.truststore.jks
-      - key: KAFKA_SSL_KEYSTORE_PASSWORD
-        sync: false
-      - key: KAFKA_SSL_KEY_PASSWORD
-        sync: false
-      - key: KAFKA_SSL_TRUSTSTORE_PASSWORD
-        sync: false
-      - key: KAFKA_SSL_KEYSTORE_BASE64
-        sync: false
-      - key: KAFKA_SSL_TRUSTSTORE_BASE64
-        sync: false
-      - key: KAFKA_TOPIC
-        value: events-topic
-      - key: KAFKA_GROUP_ID
-        value: guardrails-group
       - key: JWT_SECRET
         sync: false
       - key: GUARDRAILS_ENCRYPTION_SECRET

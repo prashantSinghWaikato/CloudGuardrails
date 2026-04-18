@@ -12,10 +12,6 @@ spring:
     show-sql: false
   flyway:
     enabled: false
-  kafka:
-    bootstrap-servers: localhost:19092
-    listener:
-      auto-startup: false
 server:
   port: 0
 jwt:

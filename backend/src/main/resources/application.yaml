@@ -16,20 +16,6 @@ spring:
         format_sql: true
   flyway:
     enabled: true
-  kafka:
-    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
-    consumer:
-      group-id: ${KAFKA_GROUP_ID:guardrails-group}
-      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
-    properties:
-      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
-      ssl.keystore.type: ${KAFKA_SSL_KEYSTORE_TYPE:PKCS12}
-      ssl.keystore.location: ${KAFKA_SSL_KEYSTORE_LOCATION:}
-      ssl.keystore.password: ${KAFKA_SSL_KEYSTORE_PASSWORD:}
-      ssl.key.password: ${KAFKA_SSL_KEY_PASSWORD:}
-      ssl.truststore.type: ${KAFKA_SSL_TRUSTSTORE_TYPE:JKS}
-      ssl.truststore.location: ${KAFKA_SSL_TRUSTSTORE_LOCATION:}
-      ssl.truststore.password: ${KAFKA_SSL_TRUSTSTORE_PASSWORD:}
 server:
   port: ${PORT:8081}
 jwt:
@@ -44,7 +30,5 @@ ingestion:
     enabled: ${GUARDRAILS_POLLING_ENABLED:false}
     fixed-rate-ms: ${GUARDRAILS_POLLING_FIXED_RATE_MS:3600000}
 app:
-  kafka:
-    topic: ${KAFKA_TOPIC:events-topic}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:5173,http://127.0.0.1:5173}

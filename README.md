@@ -59,7 +59,6 @@ The frontend provides:
 - Spring Data JPA
 - Flyway
 - PostgreSQL
-- Kafka
 - AWS SDK v2
 - WebSocket / STOMP
 
@@ -80,7 +79,6 @@ To run the full platform locally, ensure the following are available:
 - Node.js 20 or later
 - npm 10 or later
 - PostgreSQL running on `localhost:5432`
-- Kafka running on `localhost:19092`
 
 Current backend defaults:
 
@@ -149,7 +147,6 @@ The most practical hosted setup for this repository is:
 - frontend on Render Static Site
 - backend on Render Web Service
 - database on Render Postgres
-- Kafka on Aiven Free Kafka
 
 This keeps the application close to its current architecture while avoiding AWS infrastructure overhead.
 
@@ -159,8 +156,6 @@ This keeps the application close to its current architecture while avoiding AWS 
 
 - deploy [backend/Dockerfile](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/Dockerfile:1) as a Render web service
 - supply database credentials from Render Postgres
-- supply Kafka bootstrap and TLS settings from Aiven
-- supply base64-encoded Aiven Java truststore and keystore values as Render environment variables
 - enable scheduler-based AWS monitoring with `GUARDRAILS_POLLING_ENABLED=true`
 
 #### Frontend
@@ -172,16 +167,6 @@ This keeps the application close to its current architecture while avoiding AWS 
 
 - provision a Render Postgres instance in the same region as the backend
 - use the internal Render connection string for `SPRING_DATASOURCE_URL`
-
-#### Kafka
-
-- provision an Aiven Free Kafka service
-- create Java client credentials using Aiven's SSL workflow
-- provide:
-  - bootstrap server host and port
-  - keystore and truststore passwords
-  - base64 of `client.keystore.p12`
-  - base64 of `client.truststore.jks`
 
 ### Forwarder-Free AWS Onboarding
 

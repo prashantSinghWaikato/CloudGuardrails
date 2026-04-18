@@ -24,7 +24,6 @@ This service is responsible for turning cloud activity into actionable security 
 - Spring Data JPA
 - Flyway
 - PostgreSQL
-- Kafka
 - AWS SDK v2
 - WebSocket / STOMP
 
@@ -40,7 +39,7 @@ Client / AWS Source
   Services / Rule Engine
         |
         v
- PostgreSQL + Kafka + WebSocket Messaging
+ PostgreSQL + Scheduled AWS Polling + WebSocket Messaging
 ```
 
 ## Package Layout
@@ -66,7 +65,6 @@ Required local dependencies:
 
 - Java 17
 - PostgreSQL on `localhost:5432`
-- Kafka on `localhost:19092`
 
 Default application values:
 
@@ -123,13 +121,11 @@ The service will be available at:
 http://localhost:8081
 ```
 
-## Deployment on Render with Aiven Kafka
+## Deployment on Render
 
 This backend is now configured to deploy cleanly to Render while using:
 
 - Render Postgres for relational storage
-- Aiven Free Kafka for managed Kafka
-- base64-encoded environment variables for Kafka TLS materials
 
 For AWS account onboarding, the preferred runtime model is now:
 
@@ -147,22 +143,6 @@ This avoids the earlier forwarder-based setup for ongoing monitoring.
 - `SPRING_DATASOURCE_USERNAME`
 - `SPRING_DATASOURCE_PASSWORD`
 
-#### Kafka
-
-- `SPRING_KAFKA_BOOTSTRAP_SERVERS`
-- `KAFKA_TOPIC`
-- `KAFKA_GROUP_ID`
-- `KAFKA_SECURITY_PROTOCOL`
-- `KAFKA_SSL_KEYSTORE_TYPE`
-- `KAFKA_SSL_KEYSTORE_LOCATION`
-- `KAFKA_SSL_KEYSTORE_PASSWORD`
-- `KAFKA_SSL_KEY_PASSWORD`
-- `KAFKA_SSL_KEYSTORE_BASE64`
-- `KAFKA_SSL_TRUSTSTORE_TYPE`
-- `KAFKA_SSL_TRUSTSTORE_LOCATION`
-- `KAFKA_SSL_TRUSTSTORE_PASSWORD`
-- `KAFKA_SSL_TRUSTSTORE_BASE64`
-
 #### Application Secrets
 
 - `JWT_SECRET`
@@ -170,27 +150,6 @@ This avoids the earlier forwarder-based setup for ongoing monitoring.
 - `GUARDRAILS_INGESTION_SECRET`
 - `CORS_ALLOWED_ORIGIN_PATTERNS`
 - `GUARDRAILS_POLLING_ENABLED`
-
-### Render Binary Secret Handling
-
-The deployment image decodes base64-encoded Kafka keystore and truststore values at container startup.
-
-Set:
-
-```text
-KAFKA_SSL_KEYSTORE_LOCATION=/app/secrets/client.keystore.p12
-KAFKA_SSL_TRUSTSTORE_LOCATION=/app/secrets/client.truststore.jks
-KAFKA_SSL_KEYSTORE_BASE64=<base64 of client.keystore.p12>
-KAFKA_SSL_TRUSTSTORE_BASE64=<base64 of client.truststore.jks>
-KAFKA_SECURITY_PROTOCOL=SSL
-```
-
-Generate the base64 values with:
-
-```bash
-base64 < client.keystore.p12 | tr -d '\n'
-base64 < client.truststore.jks | tr -d '\n'
-```
 
 ### No-Forwarder AWS Activation
 
@@ -208,18 +167,6 @@ GUARDRAILS_POLLING_ENABLED=true
 ```
 
 Once activated, the scheduler polls CloudTrail for AWS accounts with monitoring enabled and records the latest sync status on the account.
-
-### Aiven Java TLS Setup
-
-According to Aiven's Java Kafka documentation, Java clients typically connect by creating:
-
-- a PKCS12 keystore from `service.key` and `service.cert`
-- a JKS truststore from `ca.pem`
-
-Reference:
-
-- https://aiven.io/docs/products/kafka/howto/keystore-truststore
-- https://aiven.io/docs/products/kafka/howto/connect-with-java
 
 ### Deployment Assets
 
