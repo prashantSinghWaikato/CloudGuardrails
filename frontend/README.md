@@ -1,68 +1,79 @@
-# Cloud Guardrails UI
+# CloudGuardrails Frontend
 
-Frontend for the Cloud Guardrails platform. This app provides:
+The frontend is the operator console for CloudGuardrails. It provides the user-facing experience for authentication, cloud account onboarding, security posture visibility, remediation operations, and real-time monitoring.
 
-- authentication and signup
-- cloud account onboarding with account validation
-- violations and remediations views
-- realtime updates over WebSocket/SockJS
+## Purpose
 
-The UI is built with React, TypeScript, Vite, Tailwind CSS, Recharts, and STOMP/SockJS.
+This application translates backend guardrail workflows into a usable operational interface for security and platform teams. It focuses on fast visibility, clear navigation, and live updates for violations and remediation activity.
 
-## Stack
+## User Capabilities
 
-- Node.js 20+ recommended
-- npm 10+ recommended
+- sign up and log in to the platform
+- access protected application routes
+- onboard and validate AWS cloud accounts
+- review dashboard summaries and charts
+- inspect violations and remediation status
+- monitor rule posture and notification-driven updates
+
+## Technical Stack
+
 - React 19
-- Vite 8
+- TypeScript
+- Vite
 - Tailwind CSS 4
+- React Router
+- Recharts
+- SockJS / STOMP client
 
-## Project Structure
+## Application Structure
 
 ```text
 src/
-  api/           API clients and websocket client
-  components/    shared UI components
-  pages/         route-level screens
-  types/         shared frontend types
+├── api/         HTTP and WebSocket client utilities
+├── assets/      Images and static UI assets
+├── components/  Shared layout, tables, charts, and modals
+├── mock/        Local mock data helpers
+├── pages/       Route-level application screens
+├── types/       Shared TypeScript models
+├── App.tsx      Route composition and authenticated layout
+└── main.tsx     Application bootstrap
 ```
 
-## Prerequisites
+## Runtime Dependencies
 
-This frontend depends on the backend service being available.
+Recommended local versions:
 
-Expected backend defaults:
+- Node.js 20 or later
+- npm 10 or later
 
-- backend base URL: `http://localhost:8081`
-- REST API: `http://localhost:8081`
-- WebSocket endpoint: `http://localhost:8081/ws`
+Expected backend dependency:
 
-The current backend also expects:
+- CloudGuardrails backend running on `http://localhost:8081`
 
-- PostgreSQL running on `localhost:5432`
-- database name: `cloud_guardrails`
-- Kafka running on `localhost:19092`
-- Java 17 for the backend
+## Configuration
 
-## Backend Setup
+Frontend runtime configuration uses Vite environment variables.
 
-If you are running the matching backend project locally, its current defaults are:
+### Supported Variable
 
-- Java 17
-- Spring Boot 3.5
-- PostgreSQL datasource in `src/main/resources/application.yaml`
-- Kafka bootstrap server at `localhost:19092`
+- `VITE_API_BASE_URL`
+  Default: `http://localhost:8081`
 
-Typical backend startup:
+Environment template:
+
+- [`.env.example`](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/frontend/.env.example:1)
+
+Typical local setup:
 
 ```bash
-cd /path/to/guardrails
-./gradlew bootRun
+cp .env.example .env.local
 ```
 
-The backend should start on `http://localhost:8081`.
+```bash
+VITE_API_BASE_URL=http://localhost:8081
+```
 
-## Frontend Setup
+## Running Locally
 
 Install dependencies:
 
@@ -70,7 +81,7 @@ Install dependencies:
 npm install
 ```
 
-Start the dev server:
+Start the development server:
 
 ```bash
 npm run dev
@@ -82,7 +93,7 @@ Build for production:
 npm run build
 ```
 
-Run lint:
+Run linting:
 
 ```bash
 npm run lint
@@ -94,82 +105,82 @@ Preview the production build locally:
 npm run preview
 ```
 
-## Environment Variables
-
-The frontend supports configuring the API base URL with:
-
-```bash
-VITE_API_BASE_URL=http://localhost:8081
-```
-
-Create a local env file if needed:
-
-```bash
-cp .env.example .env.local
-```
-
-If you do not set `VITE_API_BASE_URL`, the app defaults to `http://localhost:8081`.
-
-Suggested `.env.local`:
-
-```bash
-VITE_API_BASE_URL=http://localhost:8081
-```
-
-## First Run
-
-1. Start PostgreSQL.
-2. Start Kafka.
-3. Start the backend on port `8081`.
-4. Start the frontend with `npm run dev`.
-5. Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
-6. Sign up for a new organization or log in with an existing user.
-
-## Account Onboarding
-
-The current UI supports AWS account onboarding.
-
-In the Add Account flow, the backend expects:
-
-- `accountId`
-- `provider`
-- `region`
-- `accessKey`
-- `secretKey`
-
-There is also a dedicated account validation step before save. The frontend calls:
+Default development URL:
 
 ```text
-POST /accounts/validate
+http://localhost:5173
 ```
 
-Successful validation returns:
+## Route Model
 
-- `valid`
-- `provider`
-- `accountId`
-- `arn`
-- `userId`
-- `message`
+The frontend currently exposes:
 
-## Auth Notes
+- `/` for login
+- `/signup` for registration
+- `/dashboard` for operational overview
+- `/violations` for findings management
+- `/remediations` for remediation workflow tracking
+- `/accounts` for cloud account onboarding
+- `/rules` for rule visibility and control
 
-The backend currently returns a raw JWT string from:
+Protected routes are enforced through the authenticated layout in [src/App.tsx](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/frontend/src/App.tsx:1).
 
-- `POST /auth/login`
-- `POST /auth/signup`
+## Integration Model
 
-The frontend stores that token in `localStorage` and uses it for subsequent API calls.
+The application integrates with the backend through:
 
-## Main Frontend Features
+- REST APIs for authentication, accounts, violations, remediations, rules, and notifications
+- WebSocket/STOMP for live violation and remediation updates
 
-- login and signup
-- dashboard cards and charts
-- violations list with search and realtime updates
-- remediations list with realtime updates
-- cloud account management
+The frontend currently expects:
 
-## Scripts
+- REST base URL at `http://localhost:8081`
+- WebSocket endpoint at `http://localhost:8081/ws`
+
+## Main Interface Areas
+
+### Authentication
+
+- login
+- signup
+- token persistence in local storage
+- protected route access
+
+### Dashboard
+
+- summary cards
+- severity and compliance visualizations
+- top-rule trend insight
+- recent violations table
+
+### Cloud Accounts
+
+- account creation
+- account validation before persistence
+- account listing and management
+
+### Violations and Remediations
+
+- live updates
+- table-based review workflows
+- remediation state visibility
+- drill-in workflow support
+
+### Rules
+
+- rule retrieval
+- operational visibility into configured controls
+
+## Local Development Notes
+
+- ensure the backend is running before loading the UI
+- if API calls fail, verify `VITE_API_BASE_URL`
+- if live updates fail, confirm the backend WebSocket endpoint is available
+- if authentication works but operational data is empty, verify backend database and ingestion state
+
+## Quality Commands
+
+Available scripts from [package.json](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/frontend/package.json:1):
 
 ```json
 {
@@ -180,64 +191,9 @@ The frontend stores that token in `localStorage` and uses it for subsequent API 
 }
 ```
 
-## Common Issues
+## Related Assets
 
-### 1. Frontend loads but API calls fail
-
-Check:
-
-- backend is running on `http://localhost:8081`
-- `VITE_API_BASE_URL` is correct
-- browser console/network tab for 401 or 400 responses
-
-### 2. Signup or login works, but app data is empty
-
-Check:
-
-- backend database is reachable
-- the user belongs to an organization
-- cloud accounts were created successfully
-
-### 3. Account validation fails
-
-Check:
-
-- AWS account ID matches the supplied credentials
-- access key and secret key are valid
-- region is valid
-- backend can reach AWS STS
-
-### 4. Realtime updates do not appear
-
-Check:
-
-- backend WebSocket endpoint `/ws` is up
-- browser is allowed to connect to `http://localhost:8081/ws`
-- backend is producing new violations or remediations
-
-### 5. Backend starts but violations/remediations stay empty
-
-The current backend depends on event ingestion and Kafka/AWS polling. Make sure:
-
-- Kafka is running
-- events are being produced
-- AWS credentials are valid if you are using AWS ingestion
-
-## Current Caveats
-
-- The backend uses JWT claims for tenant/account scoping.
-- Depending on backend behavior, newly added cloud accounts may require a fresh login before they affect token-scoped data.
-- Production deployment settings are not documented here yet.
-
-## Verification
-
-Current frontend status at the time this README was written:
-
-- `npm run lint` passes
-- `npm run build` passes
-
-## Next Improvements
-
-- add a checked-in `.env.example`
-- document backend docker/local infra for PostgreSQL and Kafka
-- add screenshots or a short local demo flow
+- application source: [src](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/frontend/src:1)
+- public assets: [public](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/frontend/public:1)
+- Vite config: [vite.config.ts](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/frontend/vite.config.ts:1)
+- package manifest: [package.json](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/frontend/package.json:1)

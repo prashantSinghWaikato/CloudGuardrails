@@ -1,19 +1,55 @@
 # CloudGuardrails
 
-CloudGuardrails is a full-stack cloud security platform for detecting policy violations, tracking remediation workflows, and giving teams a single place to monitor cloud activity. This repository contains both the Spring Boot backend and the React frontend in one repo.
+CloudGuardrails is a full-stack cloud security operations platform designed to detect policy violations, manage remediation workflows, and provide a centralized operational view of cloud risk. This repository contains the complete application stack, including the Spring Boot backend and the React-based frontend.
 
-## Repository Layout
+## Executive Summary
+
+The platform is built around a guardrail operating model:
+
+- onboard cloud accounts into a tenant-aware control plane
+- ingest cloud activity and normalize it into internal events
+- evaluate events against configurable security rules
+- create violations and remediation records
+- surface current posture, workflow status, and notifications through a web UI
+
+The current implementation is centered on AWS and supports both API-driven operations and real-time updates to the frontend.
+
+## Repository Structure
 
 ```text
 CloudGuardrails/
-├── backend/   Spring Boot API, rule engine, persistence, auth, ingestion
-├── frontend/  React + Vite dashboard for auth, accounts, violations, remediations
+├── backend/    Spring Boot API, rule engine, persistence, ingestion, remediation
+├── frontend/   React + Vite operator console
 ├── .env.example
 ├── .editorconfig
+├── .gitignore
 └── README.md
 ```
 
-## Stack
+## Platform Architecture
+
+### Backend
+
+The backend provides:
+
+- authentication and tenant-aware access control
+- cloud account onboarding and AWS account validation
+- event ingestion and rule evaluation
+- violation lifecycle management
+- remediation approval, execution, retry, and reverification
+- notification APIs and WebSocket/STOMP updates
+
+### Frontend
+
+The frontend provides:
+
+- authentication flows for signup and login
+- dashboard views for exposure and remediation posture
+- cloud account onboarding and validation workflows
+- violation triage and remediation visibility
+- rules management and operational monitoring
+
+## Technology Stack
 
 ### Backend
 
@@ -25,66 +61,72 @@ CloudGuardrails/
 - PostgreSQL
 - Kafka
 - AWS SDK v2
-- WebSocket/STOMP
+- WebSocket / STOMP
 
 ### Frontend
 
-- Node.js 20+
-- npm 10+
 - React 19
 - TypeScript
 - Vite
 - Tailwind CSS 4
 - Recharts
+- SockJS / STOMP client
 
-## Prerequisites
+## Local Development Prerequisites
 
-Install or run these locally before starting the full application:
+To run the full platform locally, ensure the following are available:
 
 - Java 17
-- Node.js 20 or newer
-- npm 10 or newer
+- Node.js 20 or later
+- npm 10 or later
 - PostgreSQL running on `localhost:5432`
 - Kafka running on `localhost:19092`
 
-Current backend defaults from `backend/src/main/resources/application.yaml`:
+Current backend defaults:
 
+- application port: `8081`
 - database: `cloud_guardrails`
 - database user: `lio`
 - database password: empty string
-- API port: `8081`
 
-If your local setup differs, update the backend config before running.
+These values come from [backend/src/main/resources/application.yaml](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/src/main/resources/application.yaml:1).
 
-## Quick Start
+## Configuration Model
 
-### 1. Clone and configure
+### Shared Environment Template
 
-```bash
-git clone <your-repo-url>
-cd CloudGuardrails
-cp .env.example .env
-```
+A repository-level environment template is provided in [`.env.example`](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/.env.example:1) for documenting expected local variables.
 
-The root `.env` file is a convenient place to keep the shared values used during local development. The frontend and backend still use their own runtime conventions, so treat the root file as project documentation unless you wire it into your startup workflow.
+### Frontend Variables
 
-### 2. Start the backend
+- `VITE_API_BASE_URL`
+  Default: `http://localhost:8081`
+
+### Backend Variables
+
+- `GUARDRAILS_ENCRYPTION_SECRET`
+  Secret used to encrypt stored cloud credentials.
+- `GUARDRAILS_INGESTION_SECRET`
+  Shared secret for internal AWS event ingestion.
+- `GUARDRAILS_POLLING_ENABLED`
+  Enables polling-based ingestion behavior when set to `true`.
+
+## Running the Platform
+
+### Start the backend
 
 ```bash
 cd backend
 ./gradlew bootRun
 ```
 
-The backend starts on `http://localhost:8081`.
+Backend base URL:
 
-Useful backend commands:
-
-```bash
-./gradlew test
-./gradlew bootRun
+```text
+http://localhost:8081
 ```
 
-### 3. Start the frontend
+### Start the frontend
 
 Open a second terminal:
 
@@ -94,92 +136,73 @@ npm install
 npm run dev
 ```
 
-The Vite development server usually starts on `http://localhost:5173`.
+Frontend development URL:
 
-Useful frontend commands:
+```text
+http://localhost:5173
+```
+
+## Build and Verification
+
+### Backend
 
 ```bash
-npm run dev
-npm run build
+cd backend
+./gradlew test
+./gradlew bootRun
+```
+
+### Frontend
+
+```bash
+cd frontend
 npm run lint
+npm run build
 npm run preview
 ```
 
-## Environment Variables
+## Operational Capabilities
 
-### Frontend
+The platform currently supports:
 
-Frontend configuration is handled with Vite environment variables.
+- tenant-aware authentication and authorization
+- AWS account validation prior to onboarding
+- cloud event ingestion through internal and application-facing endpoints
+- rules retrieval, update, and enablement control
+- violation listing, filtering, search, status update, and remediation trigger
+- remediation approval, retry, and reverification
+- notification retrieval and read-state management
+- real-time violation and remediation updates to the UI
 
-- `VITE_API_BASE_URL`
-  Default: `http://localhost:8081`
+## Security and Governance Notes
 
-The frontend already includes `frontend/.env.example` with this value.
+- JWT is used for API authentication.
+- Stored cloud credentials are encrypted using the configured encryption secret.
+- The internal AWS ingestion endpoint is protected by a shared secret header.
+- Most operational APIs are organization-scoped through the authenticated user context.
 
-### Backend
+This is development-oriented documentation. Before production deployment, the project should also formalize:
 
-The backend currently uses these environment variables:
+- externalized secrets management
+- production-grade JWT key rotation
+- infrastructure-as-code for runtime dependencies
+- CI/CD quality gates
+- observability standards for logs, metrics, and tracing
 
-- `GUARDRAILS_ENCRYPTION_SECRET`
-  Used to encrypt stored cloud credentials.
-- `GUARDRAILS_INGESTION_SECRET`
-  Shared secret for ingestion-related flows.
-- `GUARDRAILS_POLLING_ENABLED`
-  Enables polling-based ingestion when set to `true`.
+## Module Documentation
 
-The backend also reads database and Kafka settings from `backend/src/main/resources/application.yaml`.
+Detailed module documentation is available in:
 
-## Main Features
+- [backend/README.md](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/README.md:1)
+- [frontend/README.md](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/frontend/README.md:1)
 
-- JWT-based signup and login
-- Organization-aware account management
-- AWS account validation before onboarding
-- Cloud event ingestion and rule evaluation
-- Violation tracking and remediation workflows
-- Realtime updates over WebSocket/STOMP
-- Frontend dashboards for violations and remediations
+## Contribution Guidance
 
-## Development Workflow
+When contributing to this repository:
 
-### Backend
+- commit source code, configuration, migrations, wrapper files, and documentation
+- do not commit local environment files
+- do not commit generated frontend or backend build output
+- keep repository-level documentation aligned with actual runtime behavior
 
-The backend module contains:
-
-- authentication and authorization
-- cloud account onboarding
-- rule evaluation
-- event ingestion
-- remediation orchestration
-- WebSocket updates
-
-See `backend/README.md` for backend-specific details.
-
-### Frontend
-
-The frontend module contains:
-
-- login and signup flows
-- protected routes
-- cloud account onboarding UI
-- violations and remediations pages
-- charts and live updates
-
-See `frontend/README.md` for frontend-specific details.
-
-## Recommended First Commit Hygiene
-
-Before pushing this repository, make sure generated artifacts stay untracked:
-
-- `frontend/node_modules/`
-- `frontend/dist/`
-- `backend/build/`
-- `backend/.gradle/`
-- IDE files such as `.idea/`
-
-This root `.gitignore` now covers those paths.
-
-## Notes
-
-- The backend currently assumes local PostgreSQL and Kafka unless you change its configuration.
-- The repo already contains module-level `README.md` files for more detailed frontend and backend setup.
-- If you plan to onboard other developers, the next useful additions would be Docker Compose for PostgreSQL and Kafka, plus CI for frontend lint/build and backend tests.
+The repository-level [`.gitignore`](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/.gitignore:1) is configured to exclude generated artifacts and local-only files.

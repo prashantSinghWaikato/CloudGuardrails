@@ -1,83 +1,111 @@
-# Guardrails
+# CloudGuardrails Backend
 
-Guardrails is a Spring Boot backend for multi-tenant cloud security monitoring. It ingests cloud activity, evaluates configurable rules, creates violations and remediations, and exposes APIs for account onboarding, authentication, event submission, and real-time updates.
+The backend is the control plane for CloudGuardrails. It provides authentication, tenant-aware data access, cloud account onboarding, event ingestion, rule evaluation, violation tracking, remediation orchestration, and real-time messaging to connected clients.
 
-## What It Does
+## Purpose
 
-- Authenticates users with JWT.
-- Organizes data by organization and cloud account.
-- Validates AWS accounts before saving them.
-- Encrypts stored AWS credentials at rest.
-- Ingests CloudTrail events from onboarded AWS accounts.
-- Evaluates events against rules from `src/main/resources/rules.yml`.
-- Creates violations and remediation records.
-- Pushes violation/remediation updates over WebSocket/STOMP.
+This service is responsible for turning cloud activity into actionable security workflow records. It receives events, evaluates policy conditions, persists operational state, and exposes the APIs used by the web application and internal ingestion components.
 
-## Tech Stack
+## Core Responsibilities
+
+- authenticate users and issue JWTs
+- manage organizations and cloud accounts
+- validate AWS account credentials before persistence
+- ingest events from external and internal sources
+- evaluate rules and create violations
+- create, execute, retry, and reverify remediations
+- publish notifications and real-time updates
+
+## Technical Stack
 
 - Java 17
 - Spring Boot 3.5
-- Spring Web
 - Spring Security
 - Spring Data JPA
+- Flyway
 - PostgreSQL
 - Kafka
 - AWS SDK v2
-- WebSocket/STOMP
+- WebSocket / STOMP
 
-## Project Structure
+## High-Level Architecture
+
+```text
+Client / AWS Source
+        |
+        v
+   REST Controllers
+        |
+        v
+  Services / Rule Engine
+        |
+        v
+ PostgreSQL + Kafka + WebSocket Messaging
+```
+
+## Package Layout
 
 ```text
 src/main/java/com/cloud/guardrails
-├── aws          AWS validation and ingestion
-├── config       Spring, security, Kafka, and rule config
-├── controller   REST endpoints
-├── dto          Request/response models
-├── engine       Rule condition evaluation
-├── entity       JPA entities
-├── exception    Structured API error handling
-├── repository   Data access
-├── security     JWT and credential encryption
-└── service      Business logic
+├── aws         AWS validation, ingestion, and remediation integrations
+├── commons     Shared constants
+├── config      Security, Kafka, rules, and WebSocket configuration
+├── controller  External and internal API endpoints
+├── dto         Request and response contracts
+├── engine      Rule condition evaluation logic
+├── entity      Persistence model
+├── exception   Domain-specific exception handling
+├── repository  JPA repositories
+├── security    JWT and credential encryption support
+└── service     Application services and orchestration
 ```
 
-## Local Requirements
+## Runtime Prerequisites
 
-You need these running locally before the main flows work end to end:
+Required local dependencies:
 
 - Java 17
 - PostgreSQL on `localhost:5432`
 - Kafka on `localhost:19092`
 
-The app currently expects this database:
+Default application values:
 
+- application port: `8081`
 - database: `cloud_guardrails`
-- username: `lio`
-- password: empty string
+- database user: `lio`
+- database password: empty string
 
-Adjust `src/main/resources/application.yaml` if your local setup differs.
+These values are defined in [src/main/resources/application.yaml](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/src/main/resources/application.yaml:1).
 
 ## Configuration
 
-Current application config lives in [src/main/resources/application.yaml](/Users/lio/Downloads/guardrails/src/main/resources/application.yaml).
+### Application Configuration
 
-Important settings:
+Primary runtime configuration lives in:
 
-- `spring.datasource.*`: PostgreSQL connection
-- `spring.kafka.bootstrap-servers`: Kafka broker
-- `server.port`: API port, currently `8081`
-- `jwt.secret`: JWT signing key
-- `security.encryption.secret`: secret used to encrypt AWS credentials at rest
+- [src/main/resources/application.yaml](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/src/main/resources/application.yaml:1)
+- [src/main/resources/rules.yml](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/src/main/resources/rules.yml:1)
 
-Recommended environment variable:
+### Environment Variables
+
+- `GUARDRAILS_ENCRYPTION_SECRET`
+  Encrypts stored cloud credentials.
+- `GUARDRAILS_INGESTION_SECRET`
+  Validates requests to the internal AWS ingestion endpoint.
+- `GUARDRAILS_POLLING_ENABLED`
+  Enables polling-based ingestion logic.
+
+Example:
 
 ```bash
-export GUARDRAILS_ENCRYPTION_SECRET="replace-this-with-a-long-random-secret"
+export GUARDRAILS_ENCRYPTION_SECRET="replace-with-a-long-random-secret"
+export GUARDRAILS_INGESTION_SECRET="replace-with-a-long-random-secret"
+export GUARDRAILS_POLLING_ENABLED=false
 ```
 
-## Running the App
+## Running Locally
 
-Start PostgreSQL and Kafka first, then run:
+Start the service:
 
 ```bash
 ./gradlew bootRun
@@ -89,9 +117,29 @@ Run tests:
 ./gradlew test
 ```
 
-## API Overview
+The service will be available at:
 
-### Auth
+```text
+http://localhost:8081
+```
+
+## Database and Migrations
+
+Database migrations are managed through Flyway and stored under:
+
+- [src/main/resources/db/migration](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/src/main/resources/db/migration:1)
+
+Current migrations include:
+
+- initial schema creation
+- notifications support
+- cloud account naming
+- remediation audit fields
+- remediation execution history
+
+## API Surface
+
+### Authentication
 
 - `POST /auth/signup`
 - `POST /auth/login`
@@ -104,10 +152,6 @@ Run tests:
 - `GET /accounts`
 - `PUT /accounts/{id}`
 - `DELETE /accounts/{id}`
-
-### Events
-
-- `POST /events`
 
 ### Violations
 
@@ -125,22 +169,50 @@ Run tests:
 - `GET /remediations`
 - `GET /remediations/{id}`
 - `POST /remediations/{id}/approve`
+- `POST /remediations/{id}/retry`
+- `POST /remediations/{id}/reverify`
 
-## Authentication
+### Rules
 
-Most endpoints require:
+- `GET /rules`
+- `GET /rules/{id}`
+- `PUT /rules/{id}`
+- `PATCH /rules/{id}/enabled`
+
+### Notifications
+
+- `GET /notifications`
+- `GET /notifications/unread-count`
+- `PUT /notifications/{id}/read`
+- `PUT /notifications/read-all`
+
+### Internal Ingestion
+
+- `POST /internal/aws/events`
+
+The internal ingestion endpoint expects the header:
+
+```http
+X-Guardrails-Ingestion-Secret: <shared-secret>
+```
+
+## Authentication Model
+
+The API issues JWTs from the authentication endpoints. Protected endpoints expect:
 
 ```http
 Authorization: Bearer <jwt>
 ```
 
-Get a token with signup or login, then reuse it in Postman or your frontend.
+The current signup flow creates a new organization and an initial user with the `ADMIN` role.
 
-## Postman Setup Guide
+## Example Local Workflow
 
 ### 1. Sign up
 
-`POST http://localhost:8081/auth/signup`
+```http
+POST /auth/signup
+```
 
 ```json
 {
@@ -151,20 +223,12 @@ Get a token with signup or login, then reuse it in Postman or your frontend.
 }
 ```
 
-Copy the JWT from the response.
-
-### 2. Validate an AWS account before saving it
-
-`POST http://localhost:8081/accounts/validate`
-
-Headers:
+### 2. Validate an AWS account
 
 ```http
+POST /accounts/validate
 Authorization: Bearer <jwt>
-Content-Type: application/json
 ```
-
-Body:
 
 ```json
 {
@@ -176,21 +240,19 @@ Body:
 }
 ```
 
-Expected behavior:
+### 3. Save the account
 
-- valid credentials + matching account ID: success
-- valid credentials + wrong account ID: failure
-- invalid credentials: failure
+```http
+POST /accounts
+Authorization: Bearer <jwt>
+```
 
-### 3. Save the AWS account
+### 4. Submit an event
 
-`POST http://localhost:8081/accounts`
-
-Use the same JSON body after validation succeeds.
-
-### 4. Manually test rule evaluation
-
-`POST http://localhost:8081/events`
+```http
+POST /events
+Authorization: Bearer <jwt>
+```
 
 ```json
 {
@@ -205,94 +267,23 @@ Use the same JSON body after validation succeeds.
 }
 ```
 
-Then inspect:
+### 5. Review operational state
 
 - `GET /violations`
 - `GET /remediations`
+- `GET /notifications`
 
-## Error Response Format
+## Security Considerations
 
-The API now returns structured errors like:
+- JWT secret management should be externalized for non-local environments.
+- AWS credential material should not be stored or shared outside approved secure workflows.
+- The internal ingestion secret should be rotated and managed outside source control.
+- Production deployments should place this service behind TLS termination and centralized monitoring.
 
-```json
-{
-  "timestamp": "2026-04-10T05:00:00",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "AWS account ID does not match the supplied credentials",
-  "path": "/accounts/validate"
-}
-```
+## Related Assets
 
-## Rule Engine
-
-Rules are defined in `src/main/resources/rules.yml`.
-
-Each rule includes:
-
-- `name`
-- `eventType`
-- `condition`
-- `severity`
-- `message`
-
-### Supported Event Matching
-
-- exact event type match, such as `RunInstances`
-- wildcard event type with `*`
-
-### Supported Condition Syntax
-
-The current evaluator supports:
-
-- equality: `port == 22`
-- inequality: `user != 'root'`
-- numeric comparison: `port >= 22`
-- logical `&&`
-- logical `||`
-- contains: `userIdentity.arn contains 'admin'`
-- exists: `requestParameters.bucketName exists`
-- nested fields with dot notation: `requestParameters.bucketName == 'demo-bucket'`
-
-Examples:
-
-```yaml
-condition: "port == 22 && cidr == '0.0.0.0/0'"
-condition: "requestParameters.bucketName exists"
-condition: "userIdentity.arn contains 'root' || sourceIp == 'unknown'"
-```
-
-## AWS Account Validation
-
-When onboarding an AWS account, Guardrails calls AWS STS `GetCallerIdentity` using the provided credentials and verifies that the returned AWS account ID matches the account ID from the request.
-
-That means:
-
-- the request machine must have outbound internet access to AWS STS
-- the credentials must be valid
-- the region must be valid
-
-## AWS Ingestion
-
-The scheduler polls AWS CloudTrail for onboarded AWS accounts. Ingested events are:
-
-- stored as internal `Event` rows
-- evaluated against the rule set
-- skipped if the same external CloudTrail event was already ingested for the same cloud account
-
-## Security Notes
-
-- AWS credentials are encrypted before being stored.
-- Credentials are still long-lived secrets in your database; IAM role assumption would be stronger.
-- JWT currently carries organization ID and allowed cloud account IDs.
-
-## Current Gaps
-
-Useful next improvements:
-
-- integration tests for account validation and ingestion
-- database-level unique constraint on `(cloud_account_id, external_event_id)`
-- IAM role assumption instead of stored access keys
-- richer remediation execution
-- stronger auth semantics for `401` vs `403`
-
+- API and service code: [src/main/java](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/src/main/java:1)
+- Runtime config: [src/main/resources](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/src/main/resources:1)
+- Tests: [src/test](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/src/test:1)
+- AWS ingestion support: [infra/aws-forwarder](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/infra/aws-forwarder:1)
+- Additional design notes: [docs/aws-push-ingestion.md](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/docs/aws-push-ingestion.md:1)
