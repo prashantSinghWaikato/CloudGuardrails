@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: guardrails
+  config:
+    import: "classpath:rules.yml"
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cloud_guardrails
+    username: lio
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      group-id: guardrails-group
+      auto-offset-reset: earliest
+server:
+  port: 8081
+jwt:
+  secret: cloud-guardrails-secret-authorization-key
+security:
+  encryption:
+    secret: ${GUARDRAILS_ENCRYPTION_SECRET:guardrails-local-encryption-secret}
+ingestion:
+  aws:
+    shared-secret: ${GUARDRAILS_INGESTION_SECRET:guardrails-local-ingestion-secret}
+  polling:
+    enabled: ${GUARDRAILS_POLLING_ENABLED:false}

@@ -1,0 +1,30 @@
+spring:
+  config:
+    import: "classpath:rules.yml"
+  datasource:
+    url: jdbc:h2:mem:guardrails-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  flyway:
+    enabled: false
+  kafka:
+    bootstrap-servers: localhost:19092
+    listener:
+      auto-startup: false
+server:
+  port: 0
+jwt:
+  secret: cloud-guardrails-secret-authorization-key
+security:
+  encryption:
+    secret: test-encryption-secret
+ingestion:
+  aws:
+    shared-secret: test-ingestion-secret
+  polling:
+    enabled: false

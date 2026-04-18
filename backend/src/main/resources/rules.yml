@@ -1,0 +1,128 @@
+rules:
+  list:
+
+    # ========================
+    # ☁️ S3 RULES
+    # ========================
+
+    - name: S3 Public Read Access
+      eventType: PutBucketAcl
+      condition: "acl == 'public-read'"
+      severity: HIGH
+      category: STORAGE
+      message: S3 bucket allows public read access
+
+    - name: S3 Public Write Access
+      eventType: PutBucketAcl
+      condition: "acl == 'public-write'"
+      severity: CRITICAL
+      category: STORAGE
+      message: S3 bucket allows public write access
+
+    - name: S3 Bucket Policy Public
+      eventType: PutBucketPolicy
+      condition: "principal == '*'"
+      severity: HIGH
+      category: STORAGE
+      message: S3 bucket policy allows public access
+
+    - name: S3 Encryption Disabled
+      eventType: PutBucketEncryption
+      condition: "encryption == 'false'"
+      severity: MEDIUM
+      category: STORAGE
+      message: S3 bucket encryption is not enabled
+
+
+    # ========================
+    # 👤 IAM RULES
+    # ========================
+
+    - name: IAM User Created
+      eventType: CreateUser
+      severity: LOW
+      category: IAM
+      message: New IAM user created
+
+    - name: Access Key Created
+      eventType: CreateAccessKey
+      severity: HIGH
+      category: IAM
+      message: Access key created for user
+
+    - name: Admin Policy Attached
+      eventType: AttachUserPolicy
+      condition: "policy == 'AdministratorAccess'"
+      severity: CRITICAL
+      category: IAM
+      message: Admin privileges granted to user
+
+    - name: Root Login Detected
+      eventType: ConsoleLogin
+      condition: "user == 'root'"
+      severity: CRITICAL
+      category: IAM
+      message: Root account login detected
+
+
+    # ========================
+    # 🔐 SECURITY GROUP RULES
+    # ========================
+
+    - name: Security Group Open to World
+      eventType: AuthorizeSecurityGroupIngress
+      condition: "cidr == '0.0.0.0/0'"
+      severity: HIGH
+      category: NETWORK
+      message: Security group open to internet
+
+    - name: SSH Open to Internet
+      eventType: AuthorizeSecurityGroupIngress
+      condition: "port == 22 && cidr == '0.0.0.0/0'"
+      severity: CRITICAL
+      category: NETWORK
+      message: SSH port open to entire internet
+
+    - name: RDP Open to Internet
+      eventType: AuthorizeSecurityGroupIngress
+      condition: "port == 3389 && cidr == '0.0.0.0/0'"
+      severity: CRITICAL
+      category: NETWORK
+      message: RDP port open to entire internet
+
+
+    # ========================
+    # 💻 EC2 RULES
+    # ========================
+
+    - name: EC2 Instance Launched
+      eventType: RunInstances
+      severity: LOW
+      category: COMPUTE
+      message: EC2 instance launched
+
+    - name: Large EC2 Instance
+      eventType: RunInstances
+      condition: "instanceType == 'm5.large'"
+      severity: MEDIUM
+      category: COMPUTE
+      message: Large EC2 instance launched
+
+    - name: EC2 Without Tags
+      eventType: RunInstances
+      condition: "hasTag == 'false'"
+      severity: MEDIUM
+      category: COMPUTE
+      message: EC2 instance launched without tags
+
+
+    # ========================
+    # 🔐 GENERIC SECURITY RULES
+    # ========================
+
+    - name: Suspicious API Call
+      eventType: "*"
+      condition: "sourceIp == 'unknown'"
+      severity: HIGH
+      category: SECURITY
+      message: Suspicious API call detected

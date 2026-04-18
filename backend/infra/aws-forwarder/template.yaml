@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Forward AWS CloudTrail events from EventBridge to Guardrails.
+
+Parameters:
+  GuardrailsIngestionUrl:
+    Type: String
+    Description: Full Guardrails ingestion endpoint URL, for example https://guardrails.example.com/internal/aws/events
+
+  GuardrailsIngestionSecret:
+    Type: String
+    NoEcho: true
+    Description: Shared secret expected by the Guardrails ingestion endpoint
+
+  EventBusName:
+    Type: String
+    Default: default
+    Description: EventBridge bus that receives CloudTrail-backed AWS API events
+
+  CaptureMode:
+    Type: String
+    Default: minimal-cost
+    AllowedValues:
+      - minimal-cost
+      - broad-capture
+    Description: minimal-cost forwards only the AWS API events used by the current Guardrails ruleset; broad-capture forwards all CloudTrail-backed AWS API calls
+
+Conditions:
+  UseMinimalCostRule: !Equals [!Ref CaptureMode, minimal-cost]
+  UseBroadCaptureRule: !Equals [!Ref CaptureMode, broad-capture]
+
+Resources:
+  GuardrailsForwarderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.handler
+      Runtime: python3.12
+      Timeout: 15
+      MemorySize: 256
+      Environment:
+        Variables:
+          GUARDRAILS_INGESTION_URL: !Ref GuardrailsIngestionUrl
+          GUARDRAILS_INGESTION_SECRET: !Ref GuardrailsIngestionSecret
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+  MinimalCostCloudTrailRule:
+    Type: AWS::Events::Rule
+    Condition: UseMinimalCostRule
+    Properties:
+      EventBusName: !Ref EventBusName
+      EventPattern:
+        detail-type:
+          - AWS API Call via CloudTrail
+        detail:
+          eventName:
+            - AuthorizeSecurityGroupIngress
+            - PutBucketAcl
+            - PutBucketPolicy
+            - PutBucketEncryption
+            - CreateUser
+            - CreateAccessKey
+            - AttachUserPolicy
+            - ConsoleLogin
+            - RunInstances
+      Targets:
+        - Arn: !GetAtt GuardrailsForwarderFunction.Arn
+          Id: GuardrailsForwarderMinimalCostTarget
+
+  BroadCloudTrailRule:
+    Type: AWS::Events::Rule
+    Condition: UseBroadCaptureRule
+    Properties:
+      EventBusName: !Ref EventBusName
+      EventPattern:
+        detail-type:
+          - AWS API Call via CloudTrail
+      Targets:
+        - Arn: !GetAtt GuardrailsForwarderFunction.Arn
+          Id: GuardrailsForwarderBroadTarget
+
+  AllowMinimalCostEventBridgeInvoke:
+    Type: AWS::Lambda::Permission
+    Condition: UseMinimalCostRule
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GuardrailsForwarderFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MinimalCostCloudTrailRule.Arn
+
+  AllowBroadEventBridgeInvoke:
+    Type: AWS::Lambda::Permission
+    Condition: UseBroadCaptureRule
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GuardrailsForwarderFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt BroadCloudTrailRule.Arn
+
+Outputs:
+  ForwarderFunctionName:
+    Description: Lambda function that forwards AWS events to Guardrails
+    Value: !Ref GuardrailsForwarderFunction
