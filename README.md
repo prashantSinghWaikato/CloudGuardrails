@@ -160,7 +160,7 @@ This keeps the application close to its current architecture while avoiding AWS 
 - deploy [backend/Dockerfile](/Users/lio/Documents/Waikato_2nd_sem/CloudGuardrails/backend/Dockerfile:1) as a Render web service
 - supply database credentials from Render Postgres
 - supply Kafka bootstrap and TLS settings from Aiven
-- upload Aiven Java truststore and keystore as Render secret files
+- supply base64-encoded Aiven Java truststore and keystore values as Render environment variables
 
 #### Frontend
 
@@ -179,8 +179,8 @@ This keeps the application close to its current architecture while avoiding AWS 
 - provide:
   - bootstrap server host and port
   - keystore and truststore passwords
-  - the generated `client.keystore.p12`
-  - the generated `client.truststore.jks`
+  - base64 of `client.keystore.p12`
+  - base64 of `client.truststore.jks`
 
 ### Render Blueprint
 

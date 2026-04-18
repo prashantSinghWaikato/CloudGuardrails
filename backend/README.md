@@ -129,7 +129,7 @@ This backend is now configured to deploy cleanly to Render while using:
 
 - Render Postgres for relational storage
 - Aiven Free Kafka for managed Kafka
-- Render secret files for Kafka TLS materials
+- base64-encoded environment variables for Kafka TLS materials
 
 ### Required Environment Variables
 
@@ -149,9 +149,11 @@ This backend is now configured to deploy cleanly to Render while using:
 - `KAFKA_SSL_KEYSTORE_LOCATION`
 - `KAFKA_SSL_KEYSTORE_PASSWORD`
 - `KAFKA_SSL_KEY_PASSWORD`
+- `KAFKA_SSL_KEYSTORE_BASE64`
 - `KAFKA_SSL_TRUSTSTORE_TYPE`
 - `KAFKA_SSL_TRUSTSTORE_LOCATION`
 - `KAFKA_SSL_TRUSTSTORE_PASSWORD`
+- `KAFKA_SSL_TRUSTSTORE_BASE64`
 
 #### Application Secrets
 
@@ -160,19 +162,25 @@ This backend is now configured to deploy cleanly to Render while using:
 - `GUARDRAILS_INGESTION_SECRET`
 - `CORS_ALLOWED_ORIGIN_PATTERNS`
 
-### Render Secret Files
+### Render Binary Secret Handling
 
-Render secret files are available at runtime under `/etc/secrets`. For Aiven's Java client flow, upload:
+The deployment image decodes base64-encoded Kafka keystore and truststore values at container startup.
 
-- `client.keystore.p12`
-- `client.truststore.jks`
-
-Then set:
+Set:
 
 ```text
-KAFKA_SSL_KEYSTORE_LOCATION=/etc/secrets/client.keystore.p12
-KAFKA_SSL_TRUSTSTORE_LOCATION=/etc/secrets/client.truststore.jks
+KAFKA_SSL_KEYSTORE_LOCATION=/app/secrets/client.keystore.p12
+KAFKA_SSL_TRUSTSTORE_LOCATION=/app/secrets/client.truststore.jks
+KAFKA_SSL_KEYSTORE_BASE64=<base64 of client.keystore.p12>
+KAFKA_SSL_TRUSTSTORE_BASE64=<base64 of client.truststore.jks>
 KAFKA_SECURITY_PROTOCOL=SSL
+```
+
+Generate the base64 values with:
+
+```bash
+base64 < client.keystore.p12 | tr -d '\n'
+base64 < client.truststore.jks | tr -d '\n'
 ```
 
 ### Aiven Java TLS Setup
