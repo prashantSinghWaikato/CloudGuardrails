@@ -33,6 +33,13 @@ rules:
       category: STORAGE
       message: S3 bucket encryption is not enabled
 
+    - name: S3 Public Access Block Disabled
+      eventType: PutBucketPublicAccessBlock
+      condition: "publicAccessBlockEnabled == 'false'"
+      severity: HIGH
+      category: STORAGE
+      message: S3 bucket public access block is disabled
+
 
     # ========================
     # 👤 IAM RULES

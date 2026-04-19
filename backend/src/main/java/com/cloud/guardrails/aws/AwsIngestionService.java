@@ -28,6 +28,7 @@ import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.GetBucketAclRequest;
 import software.amazon.awssdk.services.s3.model.GetBucketEncryptionRequest;
 import software.amazon.awssdk.services.s3.model.GetBucketPolicyStatusRequest;
+import software.amazon.awssdk.services.s3.model.GetPublicAccessBlockRequest;
 import software.amazon.awssdk.services.s3.model.Permission;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.Type;
@@ -188,12 +189,63 @@ public class AwsIngestionService {
 
         for (Bucket bucket : s3Client.listBuckets().buckets()) {
             String bucketName = bucket.name();
+            findings += scanS3PublicAccessBlock(account, s3Client, bucketName);
             findings += scanS3BucketAcl(account, s3Client, bucketName);
             findings += scanS3BucketPolicy(account, s3Client, bucketName);
             findings += scanS3BucketEncryption(account, s3Client, bucketName);
         }
 
         return findings;
+    }
+
+    private int scanS3PublicAccessBlock(CloudAccount account, S3Client s3Client, String bucketName) {
+        try {
+            var response = s3Client.getPublicAccessBlock(GetPublicAccessBlockRequest.builder()
+                    .bucket(bucketName)
+                    .build());
+
+            var config = response.publicAccessBlockConfiguration();
+            boolean enabled = config != null
+                    && Boolean.TRUE.equals(config.blockPublicAcls())
+                    && Boolean.TRUE.equals(config.ignorePublicAcls())
+                    && Boolean.TRUE.equals(config.blockPublicPolicy())
+                    && Boolean.TRUE.equals(config.restrictPublicBuckets());
+
+            if (enabled) {
+                return 0;
+            }
+
+            return saveSyntheticEvent(
+                    account,
+                    "PutBucketPublicAccessBlock",
+                    bucketName,
+                    "posture:s3:public-access-block:%s:disabled".formatted(bucketName),
+                    buildPublicAccessBlockPayload(bucketName, config)
+            );
+        } catch (S3Exception ex) {
+            String errorCode = ex.awsErrorDetails() != null ? ex.awsErrorDetails().errorCode() : null;
+            if ("NoSuchPublicAccessBlockConfiguration".equals(errorCode)) {
+                return saveSyntheticEvent(
+                        account,
+                        "PutBucketPublicAccessBlock",
+                        bucketName,
+                        "posture:s3:public-access-block:%s:missing".formatted(bucketName),
+                        Map.of(
+                                "bucketName", bucketName,
+                                "publicAccessBlockEnabled", "false",
+                                "blockPublicAcls", "false",
+                                "ignorePublicAcls", "false",
+                                "blockPublicPolicy", "false",
+                                "restrictPublicBuckets", "false",
+                                "sourceIp", "current-state-scan",
+                                "scanMode", "STATE_CHECK"
+                        )
+                );
+            }
+
+            log.debug("Skipping S3 public access block posture check for bucket {}: {}", bucketName, ex.awsErrorDetails() != null ? ex.awsErrorDetails().errorMessage() : ex.getMessage());
+            return 0;
+        }
     }
 
     private int scanS3BucketAcl(CloudAccount account, S3Client s3Client, String bucketName) {
@@ -302,6 +354,24 @@ public class AwsIngestionService {
             log.debug("Skipping S3 encryption posture check for bucket {}: {}", bucketName, ex.awsErrorDetails() != null ? ex.awsErrorDetails().errorMessage() : ex.getMessage());
             return 0;
         }
+    }
+
+    private Map<String, Object> buildPublicAccessBlockPayload(String bucketName,
+                                                              software.amazon.awssdk.services.s3.model.PublicAccessBlockConfiguration config) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("bucketName", bucketName);
+        payload.put("publicAccessBlockEnabled", config != null
+                && Boolean.TRUE.equals(config.blockPublicAcls())
+                && Boolean.TRUE.equals(config.ignorePublicAcls())
+                && Boolean.TRUE.equals(config.blockPublicPolicy())
+                && Boolean.TRUE.equals(config.restrictPublicBuckets()) ? "true" : "false");
+        payload.put("blockPublicAcls", config != null && Boolean.TRUE.equals(config.blockPublicAcls()) ? "true" : "false");
+        payload.put("ignorePublicAcls", config != null && Boolean.TRUE.equals(config.ignorePublicAcls()) ? "true" : "false");
+        payload.put("blockPublicPolicy", config != null && Boolean.TRUE.equals(config.blockPublicPolicy()) ? "true" : "false");
+        payload.put("restrictPublicBuckets", config != null && Boolean.TRUE.equals(config.restrictPublicBuckets()) ? "true" : "false");
+        payload.put("sourceIp", "current-state-scan");
+        payload.put("scanMode", "STATE_CHECK");
+        return payload;
     }
 
     private int scanIamUsers(CloudAccount account, IamClient iamClient) {
@@ -514,6 +584,7 @@ public class AwsIngestionService {
             case "PutBucketAcl" -> normalizeBucketAcl(payload, rawPayload);
             case "PutBucketPolicy" -> normalizeBucketPolicy(payload, rawPayload);
             case "PutBucketEncryption" -> normalizeBucketEncryption(payload, rawPayload);
+            case "PutBucketPublicAccessBlock" -> normalizePublicAccessBlock(payload, rawPayload);
             case "AttachUserPolicy" -> normalizeAttachUserPolicy(payload, rawPayload);
             case "ConsoleLogin" -> normalizeConsoleLogin(payload, rawPayload);
             case "RunInstances" -> normalizeRunInstances(payload, rawPayload);
@@ -579,6 +650,35 @@ public class AwsIngestionService {
         payload.putIfAbsent("encryption", encryptionEnabled == null || encryptionEnabled.isBlank() ? "false" : "true");
     }
 
+    private void normalizePublicAccessBlock(Map<String, Object> payload, Map<String, Object> rawPayload) {
+        payload.putIfAbsent("bucketName", readString(rawPayload, List.of("requestParameters.bucketName")));
+
+        String blockPublicAcls = readString(rawPayload, List.of(
+                "requestParameters.PublicAccessBlockConfiguration.BlockPublicAcls"
+        ));
+        String ignorePublicAcls = readString(rawPayload, List.of(
+                "requestParameters.PublicAccessBlockConfiguration.IgnorePublicAcls"
+        ));
+        String blockPublicPolicy = readString(rawPayload, List.of(
+                "requestParameters.PublicAccessBlockConfiguration.BlockPublicPolicy"
+        ));
+        String restrictPublicBuckets = readString(rawPayload, List.of(
+                "requestParameters.PublicAccessBlockConfiguration.RestrictPublicBuckets"
+        ));
+
+        payload.putIfAbsent("blockPublicAcls", normalizeBooleanString(blockPublicAcls));
+        payload.putIfAbsent("ignorePublicAcls", normalizeBooleanString(ignorePublicAcls));
+        payload.putIfAbsent("blockPublicPolicy", normalizeBooleanString(blockPublicPolicy));
+        payload.putIfAbsent("restrictPublicBuckets", normalizeBooleanString(restrictPublicBuckets));
+
+        boolean enabled = "true".equalsIgnoreCase(normalizeBooleanString(blockPublicAcls))
+                && "true".equalsIgnoreCase(normalizeBooleanString(ignorePublicAcls))
+                && "true".equalsIgnoreCase(normalizeBooleanString(blockPublicPolicy))
+                && "true".equalsIgnoreCase(normalizeBooleanString(restrictPublicBuckets));
+
+        payload.putIfAbsent("publicAccessBlockEnabled", enabled ? "true" : "false");
+    }
+
     private void normalizeAttachUserPolicy(Map<String, Object> payload, Map<String, Object> rawPayload) {
         String policyArn = readString(rawPayload, List.of("requestParameters.policyArn"));
         if (policyArn != null && !policyArn.isBlank()) {
@@ -639,6 +739,14 @@ public class AwsIngestionService {
             }
         }
         return null;
+    }
+
+    private String normalizeBooleanString(String value) {
+        if (value == null || value.isBlank()) {
+            return "false";
+        }
+
+        return String.valueOf(Boolean.parseBoolean(value));
     }
 
     @SuppressWarnings("unchecked")
