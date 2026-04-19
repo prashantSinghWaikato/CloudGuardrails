@@ -21,7 +21,7 @@ type RuleDatum = {
     share: number;
 };
 
-const MAX_RULES = 5;
+const MAX_RULES = 2;
 
 const truncateLabel = (value: string, max = 30) => {
     if (value.length <= max) {
@@ -54,11 +54,9 @@ const TopRulesChart = ({ violations, loading = false }: Props) => {
     const distinctRules = chartData.length;
     const allValuesEqual = chartData.every((item) => item.value === chartData[0]?.value);
     const useRankedList = distinctRules <= 3 || allValuesEqual;
-    const topRule = chartData[0];
-
     return (
         <div className="flex h-full flex-col rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,26,43,0.95),rgba(10,20,33,0.82))] p-6 shadow-[0_24px_70px_-36px_rgba(2,8,23,0.95)]">
-            <div className="mb-6 flex items-start justify-between gap-4">
+            <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                     <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">
                         Rule Noise
@@ -66,17 +64,12 @@ const TopRulesChart = ({ violations, loading = false }: Props) => {
                     <h2 className="mt-2 text-sm font-semibold text-gray-200">
                         Top Violated Rules
                     </h2>
-                    {!loading && chartData.length > 0 && (
-                        <p className="mt-2 text-xs text-slate-400">
-                            {topRule.name} leads with {topRule.share.toFixed(0)}% of visible rule noise.
-                        </p>
-                    )}
                 </div>
-                <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-right">
+                <div className="text-right">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">
                         Distinct Rules
                     </p>
-                    <p className="mt-1 text-base font-semibold text-slate-100">
+                    <p className="mt-1 text-2xl font-semibold leading-none text-slate-100">
                         {distinctRules}
                     </p>
                 </div>
@@ -92,33 +85,41 @@ const TopRulesChart = ({ violations, loading = false }: Props) => {
                 </div>
             ) : (
                 <>
+                    <div className="mb-5 rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.04] px-4 py-3 text-sm text-slate-300">
+                        <span className="font-semibold text-slate-100">{chartData[0].name}</span>{" "}
+                        is the top noisy rule right now, contributing{" "}
+                        <span className="font-semibold text-cyan-200">{chartData[0].share.toFixed(0)}%</span> of visible findings.
+                    </div>
+
                     {useRankedList ? (
-                        <div className="flex flex-1 flex-col gap-1.5">
+                        <div className="flex flex-1 flex-col gap-3">
                             {chartData.map((item, index) => (
                                 <div
                                     key={item.name}
-                                    className="rounded-2xl border border-white/8 bg-white/[0.025] px-4 py-3.5"
+                                    className="border-b border-white/8 pb-3 last:border-b-0 last:pb-0"
                                 >
-                                    <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-center justify-between gap-4">
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-3">
-                                                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-400/10 px-2 text-[11px] font-semibold text-cyan-200">
+                                                <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 text-[11px] font-semibold text-cyan-200">
                                                     {index + 1}
                                                 </span>
                                                 <p className="truncate text-sm font-medium text-slate-100" title={item.name}>
                                                     {item.name}
                                                 </p>
                                             </div>
-                                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800/90">
+                                            <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-800/90">
                                                 <div
                                                     className="h-full rounded-full bg-[linear-gradient(90deg,#67d4ff,#3b82f6)]"
                                                     style={{ width: `${Math.max(item.share, 12)}%` }}
                                                 />
                                             </div>
                                         </div>
-                                        <div className="min-w-[52px] text-right">
+                                        <div className="min-w-[64px] text-right">
                                             <p className="text-lg font-semibold leading-none text-white">{item.value}</p>
-                                            <p className="mt-1 text-[11px] text-slate-500">{item.share.toFixed(0)}%</p>
+                                            <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                                                {item.share.toFixed(0)}%
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
