@@ -20,6 +20,17 @@ import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.IpPermission;
 import software.amazon.awssdk.services.ec2.model.SecurityGroup;
 import software.amazon.awssdk.services.cloudtrail.CloudTrailClient;
+import software.amazon.awssdk.services.iam.IamClient;
+import software.amazon.awssdk.services.iam.model.AttachedPolicy;
+import software.amazon.awssdk.services.iam.model.User;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.GetBucketAclRequest;
+import software.amazon.awssdk.services.s3.model.GetBucketEncryptionRequest;
+import software.amazon.awssdk.services.s3.model.GetBucketPolicyStatusRequest;
+import software.amazon.awssdk.services.s3.model.Permission;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.Type;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -82,15 +93,28 @@ public class AwsIngestionService {
     }
 
     private int runCurrentStateChecks(CloudAccount account) {
+        int findings = 0;
+
         try (Ec2Client ec2Client = awsClientFactory.createEc2Client(account)) {
-            int findings = 0;
             findings += scanSecurityGroups(account, ec2Client);
             findings += scanInstancesWithoutTags(account, ec2Client);
-            return findings;
         } catch (Exception ex) {
-            log.error("Current-state posture checks failed for account {}", account.getId(), ex);
-            return 0;
+            log.error("EC2 posture checks failed for account {}", account.getId(), ex);
         }
+
+        try (S3Client s3Client = awsClientFactory.createS3Client(account)) {
+            findings += scanS3Buckets(account, s3Client);
+        } catch (Exception ex) {
+            log.error("S3 posture checks failed for account {}", account.getId(), ex);
+        }
+
+        try (IamClient iamClient = awsClientFactory.createIamClient(account)) {
+            findings += scanIamUsers(account, iamClient);
+        } catch (Exception ex) {
+            log.error("IAM posture checks failed for account {}", account.getId(), ex);
+        }
+
+        return findings;
     }
 
     private int scanSecurityGroups(CloudAccount account, Ec2Client ec2Client) {
@@ -154,6 +178,156 @@ public class AwsIngestionService {
                     "posture:ec2:%s:no-tags".formatted(instance.instanceId()),
                     payload
             );
+        }
+
+        return findings;
+    }
+
+    private int scanS3Buckets(CloudAccount account, S3Client s3Client) {
+        int findings = 0;
+
+        for (Bucket bucket : s3Client.listBuckets().buckets()) {
+            String bucketName = bucket.name();
+            findings += scanS3BucketAcl(account, s3Client, bucketName);
+            findings += scanS3BucketPolicy(account, s3Client, bucketName);
+            findings += scanS3BucketEncryption(account, s3Client, bucketName);
+        }
+
+        return findings;
+    }
+
+    private int scanS3BucketAcl(CloudAccount account, S3Client s3Client, String bucketName) {
+        try {
+            var acl = s3Client.getBucketAcl(GetBucketAclRequest.builder().bucket(bucketName).build());
+            boolean publicRead = acl.grants().stream().anyMatch(grant ->
+                    grant.grantee() != null
+                            && (Type.GROUP.equals(grant.grantee().type()) || "Group".equalsIgnoreCase(grant.grantee().typeAsString()))
+                            && grant.grantee().uri() != null
+                            && grant.grantee().uri().contains("AllUsers")
+                            && List.of(Permission.READ, Permission.FULL_CONTROL).contains(grant.permission())
+            );
+            boolean publicWrite = acl.grants().stream().anyMatch(grant ->
+                    grant.grantee() != null
+                            && (Type.GROUP.equals(grant.grantee().type()) || "Group".equalsIgnoreCase(grant.grantee().typeAsString()))
+                            && grant.grantee().uri() != null
+                            && grant.grantee().uri().contains("AllUsers")
+                            && List.of(Permission.WRITE, Permission.FULL_CONTROL).contains(grant.permission())
+            );
+
+            int findings = 0;
+            if (publicRead) {
+                findings += saveSyntheticEvent(
+                        account,
+                        "PutBucketAcl",
+                        bucketName,
+                        "posture:s3:acl:%s:public-read".formatted(bucketName),
+                        Map.of(
+                                "bucketName", bucketName,
+                                "acl", "public-read",
+                                "sourceIp", "current-state-scan",
+                                "scanMode", "STATE_CHECK"
+                        )
+                );
+            }
+            if (publicWrite) {
+                findings += saveSyntheticEvent(
+                        account,
+                        "PutBucketAcl",
+                        bucketName,
+                        "posture:s3:acl:%s:public-write".formatted(bucketName),
+                        Map.of(
+                                "bucketName", bucketName,
+                                "acl", "public-write",
+                                "sourceIp", "current-state-scan",
+                                "scanMode", "STATE_CHECK"
+                        )
+                );
+            }
+
+            return findings;
+        } catch (S3Exception ex) {
+            log.debug("Skipping S3 ACL posture check for bucket {}: {}", bucketName, ex.awsErrorDetails() != null ? ex.awsErrorDetails().errorMessage() : ex.getMessage());
+            return 0;
+        }
+    }
+
+    private int scanS3BucketPolicy(CloudAccount account, S3Client s3Client, String bucketName) {
+        try {
+            var status = s3Client.getBucketPolicyStatus(GetBucketPolicyStatusRequest.builder()
+                    .bucket(bucketName)
+                    .build());
+
+            if (status.policyStatus() == null || !Boolean.TRUE.equals(status.policyStatus().isPublic())) {
+                return 0;
+            }
+
+            return saveSyntheticEvent(
+                    account,
+                    "PutBucketPolicy",
+                    bucketName,
+                    "posture:s3:policy:%s:public".formatted(bucketName),
+                    Map.of(
+                            "bucketName", bucketName,
+                            "principal", "*",
+                            "sourceIp", "current-state-scan",
+                            "scanMode", "STATE_CHECK"
+                    )
+            );
+        } catch (S3Exception ex) {
+            log.debug("Skipping S3 policy posture check for bucket {}: {}", bucketName, ex.awsErrorDetails() != null ? ex.awsErrorDetails().errorMessage() : ex.getMessage());
+            return 0;
+        }
+    }
+
+    private int scanS3BucketEncryption(CloudAccount account, S3Client s3Client, String bucketName) {
+        try {
+            s3Client.getBucketEncryption(GetBucketEncryptionRequest.builder().bucket(bucketName).build());
+            return 0;
+        } catch (S3Exception ex) {
+            String errorCode = ex.awsErrorDetails() != null ? ex.awsErrorDetails().errorCode() : null;
+            if ("ServerSideEncryptionConfigurationNotFoundError".equals(errorCode)) {
+                return saveSyntheticEvent(
+                        account,
+                        "PutBucketEncryption",
+                        bucketName,
+                        "posture:s3:encryption:%s:disabled".formatted(bucketName),
+                        Map.of(
+                                "bucketName", bucketName,
+                                "encryption", "false",
+                                "sourceIp", "current-state-scan",
+                                "scanMode", "STATE_CHECK"
+                        )
+                );
+            }
+            log.debug("Skipping S3 encryption posture check for bucket {}: {}", bucketName, ex.awsErrorDetails() != null ? ex.awsErrorDetails().errorMessage() : ex.getMessage());
+            return 0;
+        }
+    }
+
+    private int scanIamUsers(CloudAccount account, IamClient iamClient) {
+        int findings = 0;
+
+        for (User user : iamClient.listUsersPaginator().users()) {
+            for (AttachedPolicy policy : iamClient.listAttachedUserPoliciesPaginator(builder -> builder.userName(user.userName()))
+                    .attachedPolicies()) {
+                if (!"AdministratorAccess".equals(policy.policyName())) {
+                    continue;
+                }
+
+                findings += saveSyntheticEvent(
+                        account,
+                        "AttachUserPolicy",
+                        user.userName(),
+                        "posture:iam:user:%s:AdministratorAccess".formatted(user.userName()),
+                        Map.of(
+                                "user", user.userName(),
+                                "userName", user.userName(),
+                                "policy", "AdministratorAccess",
+                                "sourceIp", "current-state-scan",
+                                "scanMode", "STATE_CHECK"
+                        )
+                );
+            }
         }
 
         return findings;

@@ -19,6 +19,40 @@ type Props = {
     loading?: boolean;
 };
 
+type PieLabelProps = {
+    cx?: number;
+    cy?: number;
+    midAngle?: number;
+    outerRadius?: number;
+    percent?: number;
+};
+
+const RADIAN = Math.PI / 180;
+
+const renderLabel = ({ cx = 0, cy = 0, midAngle = 0, outerRadius = 0, percent = 0 }: PieLabelProps) => {
+    if (percent <= 0) {
+        return null;
+    }
+
+    const radius = outerRadius + 18;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+        <text
+            x={x}
+            y={y}
+            fill="#f8fafc"
+            textAnchor={x > cx ? "start" : "end"}
+            dominantBaseline="central"
+            fontSize={12}
+            fontWeight={600}
+        >
+            {`${(percent * 100).toFixed(0)}%`}
+        </text>
+    );
+};
+
 const SeverityChart = ({ violations, loading = false }: Props) => {
 
     // 🔥 aggregate
@@ -66,13 +100,14 @@ const SeverityChart = ({ violations, loading = false }: Props) => {
                                     data={chartData}
                                     dataKey="value"
                                     nameKey="name"
-                                    outerRadius={85}
-                                    innerRadius={55}
+                                    cx="50%"
+                                    cy="58%"
+                                    outerRadius={76}
+                                    innerRadius={48}
                                     paddingAngle={3}
                                     stroke="none"
-                                    label={({ percent }) =>
-                                        `${((percent ?? 0) * 100).toFixed(0)}%`
-                                    }
+                                    labelLine={false}
+                                    label={renderLabel}
                                 >
                                     {chartData.map((entry, i) => (
                                         <Cell

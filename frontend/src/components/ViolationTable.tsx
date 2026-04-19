@@ -247,44 +247,58 @@ const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
                                     </td>
                                 </tr>
                             ) : violations.map((v, i) => (
-                                <tr
-                                    key={v.id}
-                                    onClick={() => {
-                                        setSelected(v);
-                                        setOpen(true);
-                                    }}
-                                    className={`border-b border-gray-800 cursor-pointer
+                                (() => {
+                                    const canFix = v.status === "OPEN";
+
+                                    return (
+                                        <tr
+                                            key={v.id}
+                                            onClick={() => {
+                                                setSelected(v);
+                                                setOpen(true);
+                                            }}
+                                            className={`border-b border-gray-800 cursor-pointer
                                     ${i % 2 ? "bg-gray-900/40" : ""}
                                     hover:bg-blue-500/10`}
-                                >
-                                    <td className="py-3 truncate">{v.ruleName}</td>
-                                    <td className="truncate">{v.resourceId}</td>
-                                    <td className="truncate">{v.accountId}</td>
-
-                                    <td className="text-center">
-                                        <span className={`px-2 py-1 text-xs rounded ${getSeverityColor(v.severity)}`}>
-                                            {v.severity}
-                                        </span>
-                                    </td>
-
-                                    <td className="text-center">
-                                        <span className={`px-2 py-1 text-xs rounded border ${getStatusClass(v.status)}`}>
-                                            {v.status}
-                                        </span>
-                                    </td>
-
-                                    <td className="text-center">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                triggerRemediation(v.id);
-                                            }}
-                                            className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 rounded"
                                         >
-                                            Fix
-                                        </button>
-                                    </td>
-                                </tr>
+                                            <td className="py-3 truncate">{v.ruleName}</td>
+                                            <td className="truncate">{v.resourceId}</td>
+                                            <td className="truncate">{v.accountId}</td>
+
+                                            <td className="text-center">
+                                                <span className={`px-2 py-1 text-xs rounded ${getSeverityColor(v.severity)}`}>
+                                                    {v.severity}
+                                                </span>
+                                            </td>
+
+                                            <td className="text-center">
+                                                <span className={`px-2 py-1 text-xs rounded border ${getStatusClass(v.status)}`}>
+                                                    {v.status}
+                                                </span>
+                                            </td>
+
+                                            <td className="text-center">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (!canFix) {
+                                                            return;
+                                                        }
+                                                        triggerRemediation(v.id);
+                                                    }}
+                                                    disabled={!canFix}
+                                                    className={`px-3 py-1 text-xs rounded transition ${
+                                                        canFix
+                                                            ? "bg-purple-600 hover:bg-purple-700 text-white"
+                                                            : "bg-slate-700/60 text-slate-400 cursor-not-allowed"
+                                                    }`}
+                                                >
+                                                    {canFix ? "Fix" : "Fixed"}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })()
                             ))}
                         </tbody>
                     </table>
