@@ -137,7 +137,7 @@ const SeverityChart = ({ violations, loading = false }: Props) => {
                             </PieChart>
                         </ResponsiveContainer>
 
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <div className="pointer-events-none absolute left-1/2 top-[58%] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center">
                             <p className="text-2xl font-semibold text-white">
                                 {total}
                             </p>
