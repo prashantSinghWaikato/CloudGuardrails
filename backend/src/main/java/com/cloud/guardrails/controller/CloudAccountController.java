@@ -3,6 +3,7 @@ package com.cloud.guardrails.controller;
 import com.cloud.guardrails.dto.AccountRequest;
 import com.cloud.guardrails.dto.AccountResponse;
 import com.cloud.guardrails.dto.AccountActivationRequest;
+import com.cloud.guardrails.dto.AccountScanRunResponse;
 import com.cloud.guardrails.dto.AccountValidationResponse;
 import com.cloud.guardrails.service.CloudAccountService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,11 @@ public class CloudAccountController {
     @PostMapping("/{id}/scan")
     public AccountResponse scan(@PathVariable Long id) {
         return service.scan(id);
+    }
+
+    @GetMapping("/{id}/scans")
+    public List<AccountScanRunResponse> getScanHistory(@PathVariable Long id) {
+        return service.getScanHistory(id);
     }
 
     // ✅ LIST

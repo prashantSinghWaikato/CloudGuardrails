@@ -1,7 +1,10 @@
 package com.cloud.guardrails.aws;
 
+import com.cloud.guardrails.entity.AccountScanRun;
 import com.cloud.guardrails.entity.CloudAccount;
 import com.cloud.guardrails.entity.Event;
+import com.cloud.guardrails.repository.AccountScanRunRepository;
+import com.cloud.guardrails.repository.CloudAccountRepository;
 import com.cloud.guardrails.repository.EventRepository;
 import com.cloud.guardrails.service.ViolationService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -10,6 +13,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeSecurityGroupsRequest;
+import software.amazon.awssdk.services.ec2.model.Instance;
+import software.amazon.awssdk.services.ec2.model.IpPermission;
+import software.amazon.awssdk.services.ec2.model.SecurityGroup;
 import software.amazon.awssdk.services.cloudtrail.CloudTrailClient;
 
 import java.time.LocalDateTime;
@@ -27,24 +36,31 @@ public class AwsIngestionService {
     private final ViolationService violationService;
     private final ObjectMapper objectMapper;
     private final AwsClientFactory awsClientFactory;
-    private final com.cloud.guardrails.repository.CloudAccountRepository cloudAccountRepository;
+    private final CloudAccountRepository cloudAccountRepository;
+    private final AccountScanRunRepository accountScanRunRepository;
 
-    public void ingest(CloudAccount account) {
+    public ScanSummary ingest(CloudAccount account) {
         validateAccount(account);
+        AccountScanRun scanRun = startScanRun(account);
+        ScanSummary summary = new ScanSummary();
 
         try (CloudTrailClient client = awsClientFactory.createCloudTrailClient(account)) {
 
             client.lookupEvents().events().forEach(e -> {
                 try {
+                    summary.eventsSeen++;
                     String externalEventId = resolveExternalEventId(e);
 
                     if (eventRepository.existsByCloudAccount_IdAndExternalEventId(account.getId(), externalEventId)) {
+                        summary.duplicatesSkipped++;
                         return;
                     }
 
                     Event savedEvent = eventRepository.saveAndFlush(buildEvent(account, e));
-                    violationService.evaluate(savedEvent);
+                    summary.eventsIngested++;
+                    summary.violationsCreated += violationService.evaluate(savedEvent);
                 } catch (DataIntegrityViolationException duplicate) {
+                    summary.duplicatesSkipped++;
                     log.debug("Skipping duplicate CloudTrail event {} for account {}",
                             e.eventId(),
                             account.getId());
@@ -53,11 +69,161 @@ public class AwsIngestionService {
                 }
             });
 
-            markSync(account, "SUCCESS", "CloudTrail polling completed successfully");
+            summary.postureFindingsCreated += runCurrentStateChecks(account);
+            String message = buildSuccessMessage(summary);
+            finishScanRun(scanRun, "SUCCESS", message, summary);
+            markSync(account, "SUCCESS", message);
+            return summary;
         } catch (Exception ex) {
+            finishScanRun(scanRun, "FAILED", ex.getMessage(), summary);
             markSync(account, "FAILED", ex.getMessage());
             throw ex;
         }
+    }
+
+    private int runCurrentStateChecks(CloudAccount account) {
+        try (Ec2Client ec2Client = awsClientFactory.createEc2Client(account)) {
+            int findings = 0;
+            findings += scanSecurityGroups(account, ec2Client);
+            findings += scanInstancesWithoutTags(account, ec2Client);
+            return findings;
+        } catch (Exception ex) {
+            log.error("Current-state posture checks failed for account {}", account.getId(), ex);
+            return 0;
+        }
+    }
+
+    private int scanSecurityGroups(CloudAccount account, Ec2Client ec2Client) {
+        int findings = 0;
+
+        for (SecurityGroup group : ec2Client.describeSecurityGroupsPaginator(DescribeSecurityGroupsRequest.builder().build())
+                .securityGroups()) {
+            for (IpPermission permission : group.ipPermissions()) {
+                for (String cidr : extractWorldCidrs(permission)) {
+                    Integer port = permission.fromPort();
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("port", port);
+                    payload.put("fromPort", permission.fromPort());
+                    payload.put("toPort", permission.toPort());
+                    payload.put("cidr", cidr);
+                    payload.put("protocol", permission.ipProtocol());
+                    payload.put("sourceIp", "current-state-scan");
+                    payload.put("scanMode", "STATE_CHECK");
+
+                    findings += saveSyntheticEvent(
+                            account,
+                            "AuthorizeSecurityGroupIngress",
+                            group.groupId(),
+                            "posture:sg:%s:%s:%s:%s".formatted(
+                                    group.groupId(),
+                                    cidr,
+                                    permission.fromPort(),
+                                    permission.toPort()
+                            ),
+                            payload
+                    );
+                }
+            }
+        }
+
+        return findings;
+    }
+
+    private int scanInstancesWithoutTags(CloudAccount account, Ec2Client ec2Client) {
+        int findings = 0;
+
+        for (Instance instance : ec2Client.describeInstancesPaginator(DescribeInstancesRequest.builder().build())
+                .reservations()
+                .stream()
+                .flatMap(reservation -> reservation.instances().stream())
+                .toList()) {
+            if (instance.tags() != null && !instance.tags().isEmpty()) {
+                continue;
+            }
+
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("instanceType", instance.instanceTypeAsString());
+            payload.put("hasTag", "false");
+            payload.put("sourceIp", "current-state-scan");
+            payload.put("scanMode", "STATE_CHECK");
+
+            findings += saveSyntheticEvent(
+                    account,
+                    "RunInstances",
+                    instance.instanceId(),
+                    "posture:ec2:%s:no-tags".formatted(instance.instanceId()),
+                    payload
+            );
+        }
+
+        return findings;
+    }
+
+    private List<String> extractWorldCidrs(IpPermission permission) {
+        List<String> cidrs = permission.ipRanges().stream()
+                .map(range -> range.cidrIp())
+                .filter(cidr -> cidr != null && cidr.equals("0.0.0.0/0"))
+                .toList();
+
+        if (!cidrs.isEmpty()) {
+            return cidrs;
+        }
+
+        return permission.ipv6Ranges().stream()
+                .map(range -> range.cidrIpv6())
+                .filter(cidr -> cidr != null && cidr.equals("::/0"))
+                .toList();
+    }
+
+    private int saveSyntheticEvent(CloudAccount account,
+                                   String eventType,
+                                   String resourceId,
+                                   String externalEventId,
+                                   Map<String, Object> payload) {
+        Event event = eventRepository.saveAndFlush(Event.builder()
+                .eventType(eventType)
+                .resourceId(resourceId)
+                .externalEventId(externalEventId + ":" + System.currentTimeMillis())
+                .payload(payload)
+                .organization(account.getOrganization())
+                .cloudAccount(account)
+                .timestamp(LocalDateTime.now())
+                .build());
+
+        return violationService.evaluate(event);
+    }
+
+    private AccountScanRun startScanRun(CloudAccount account) {
+        return accountScanRunRepository.save(AccountScanRun.builder()
+                .cloudAccount(account)
+                .organization(account.getOrganization())
+                .startedAt(LocalDateTime.now())
+                .status("RUNNING")
+                .message("Scan started")
+                .build());
+    }
+
+    private void finishScanRun(AccountScanRun scanRun, String status, String message, ScanSummary summary) {
+        scanRun.setCompletedAt(LocalDateTime.now());
+        scanRun.setStatus(status);
+        scanRun.setMessage(truncateMessage(message));
+        scanRun.setEventsSeen(summary.eventsSeen);
+        scanRun.setEventsIngested(summary.eventsIngested);
+        scanRun.setDuplicatesSkipped(summary.duplicatesSkipped);
+        scanRun.setViolationsCreated(summary.violationsCreated);
+        scanRun.setPostureFindingsCreated(summary.postureFindingsCreated);
+        accountScanRunRepository.save(scanRun);
+    }
+
+    private String buildSuccessMessage(ScanSummary summary) {
+        return "Scan completed: %d seen, %d ingested, %d duplicates skipped, %d event violations, %d posture findings"
+                .formatted(
+                        summary.eventsSeen,
+                        summary.eventsIngested,
+                        summary.duplicatesSkipped,
+                        summary.violationsCreated,
+                        summary.postureFindingsCreated
+                );
     }
 
     private Event buildEvent(CloudAccount account,
@@ -151,10 +317,14 @@ public class AwsIngestionService {
     private void markSync(CloudAccount account, String status, String message) {
         account.setLastSyncAt(LocalDateTime.now());
         account.setLastSyncStatus(status);
-        account.setLastSyncMessage(message != null && message.length() > 1024
-                ? message.substring(0, 1024)
-                : message);
+        account.setLastSyncMessage(truncateMessage(message));
         cloudAccountRepository.save(account);
+    }
+
+    private String truncateMessage(String message) {
+        return message != null && message.length() > 1024
+                ? message.substring(0, 1024)
+                : message;
     }
 
     @SuppressWarnings("unchecked")
@@ -327,5 +497,33 @@ public class AwsIngestionService {
         }
 
         return current;
+    }
+
+    public static class ScanSummary {
+        private int eventsSeen;
+        private int eventsIngested;
+        private int duplicatesSkipped;
+        private int violationsCreated;
+        private int postureFindingsCreated;
+
+        public int getEventsSeen() {
+            return eventsSeen;
+        }
+
+        public int getEventsIngested() {
+            return eventsIngested;
+        }
+
+        public int getDuplicatesSkipped() {
+            return duplicatesSkipped;
+        }
+
+        public int getViolationsCreated() {
+            return violationsCreated;
+        }
+
+        public int getPostureFindingsCreated() {
+            return postureFindingsCreated;
+        }
     }
 }

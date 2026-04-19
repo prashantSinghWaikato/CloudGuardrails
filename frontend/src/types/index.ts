@@ -116,6 +116,24 @@ export interface CloudAccount {
     lastSyncAt: string | null;
     lastSyncStatus: string | null;
     lastSyncMessage: string | null;
+    lastScanEventsSeen: number | null;
+    lastScanEventsIngested: number | null;
+    lastScanDuplicatesSkipped: number | null;
+    lastScanViolationsCreated: number | null;
+    lastScanPostureFindingsCreated: number | null;
+}
+
+export interface AccountScanRun {
+    id: number;
+    startedAt: string | null;
+    completedAt: string | null;
+    status: string | null;
+    message: string | null;
+    eventsSeen: number | null;
+    eventsIngested: number | null;
+    duplicatesSkipped: number | null;
+    violationsCreated: number | null;
+    postureFindingsCreated: number | null;
 }
 
 export interface AccountFormData {

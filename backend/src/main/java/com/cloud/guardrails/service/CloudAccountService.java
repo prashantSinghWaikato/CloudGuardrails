@@ -5,11 +5,14 @@ import com.cloud.guardrails.aws.AwsIngestionService;
 import com.cloud.guardrails.dto.AccountActivationRequest;
 import com.cloud.guardrails.dto.AccountRequest;
 import com.cloud.guardrails.dto.AccountResponse;
+import com.cloud.guardrails.dto.AccountScanRunResponse;
 import com.cloud.guardrails.dto.AccountValidationResponse;
+import com.cloud.guardrails.entity.AccountScanRun;
 import com.cloud.guardrails.entity.CloudAccount;
 import com.cloud.guardrails.entity.Organization;
 import com.cloud.guardrails.exception.ConflictException;
 import com.cloud.guardrails.exception.NotFoundException;
+import com.cloud.guardrails.repository.AccountScanRunRepository;
 import com.cloud.guardrails.repository.CloudAccountRepository;
 import com.cloud.guardrails.repository.OrganizationRepository;
 import com.cloud.guardrails.repository.UserRepository;
@@ -27,6 +30,7 @@ import java.util.List;
 public class CloudAccountService {
 
     private final CloudAccountRepository repository;
+    private final AccountScanRunRepository accountScanRunRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final CredentialCryptoService credentialCryptoService;
@@ -78,6 +82,12 @@ public class CloudAccountService {
     }
 
     private AccountResponse map(CloudAccount acc) {
+        AccountScanRun latestScan = accountScanRunRepository
+                .findTop10ByCloudAccount_IdOrderByStartedAtDesc(acc.getId())
+                .stream()
+                .findFirst()
+                .orElse(null);
+
         return AccountResponse.builder()
                 .id(acc.getId())
                 .name(acc.getName())
@@ -92,6 +102,11 @@ public class CloudAccountService {
                 .lastSyncAt(acc.getLastSyncAt() != null ? acc.getLastSyncAt().toString() : null)
                 .lastSyncStatus(acc.getLastSyncStatus())
                 .lastSyncMessage(acc.getLastSyncMessage())
+                .lastScanEventsSeen(latestScan != null ? latestScan.getEventsSeen() : null)
+                .lastScanEventsIngested(latestScan != null ? latestScan.getEventsIngested() : null)
+                .lastScanDuplicatesSkipped(latestScan != null ? latestScan.getDuplicatesSkipped() : null)
+                .lastScanViolationsCreated(latestScan != null ? latestScan.getViolationsCreated() : null)
+                .lastScanPostureFindingsCreated(latestScan != null ? latestScan.getPostureFindingsCreated() : null)
                 .build();
     }
 
@@ -220,6 +235,19 @@ public class CloudAccountService {
         return map(repository.findById(account.getId()).orElse(account));
     }
 
+    public List<AccountScanRunResponse> getScanHistory(Long id) {
+        Long orgId = UserContext.getOrgId();
+
+        CloudAccount account = repository
+                .findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new NotFoundException("Account not found"));
+
+        return accountScanRunRepository.findTop10ByCloudAccount_IdOrderByStartedAtDesc(account.getId())
+                .stream()
+                .map(this::mapScanRun)
+                .toList();
+    }
+
     private void validateNameAndAccountUniqueness(AccountRequest request, Long orgId, Long currentId) {
         String normalizedName = normalizeName(request.getName());
 
@@ -294,5 +322,20 @@ public class CloudAccountService {
                     request.getRegion()
             );
         }
+    }
+
+    private AccountScanRunResponse mapScanRun(AccountScanRun scanRun) {
+        return AccountScanRunResponse.builder()
+                .id(scanRun.getId())
+                .startedAt(scanRun.getStartedAt() != null ? scanRun.getStartedAt().toString() : null)
+                .completedAt(scanRun.getCompletedAt() != null ? scanRun.getCompletedAt().toString() : null)
+                .status(scanRun.getStatus())
+                .message(scanRun.getMessage())
+                .eventsSeen(scanRun.getEventsSeen())
+                .eventsIngested(scanRun.getEventsIngested())
+                .duplicatesSkipped(scanRun.getDuplicatesSkipped())
+                .violationsCreated(scanRun.getViolationsCreated())
+                .postureFindingsCreated(scanRun.getPostureFindingsCreated())
+                .build();
     }
 }

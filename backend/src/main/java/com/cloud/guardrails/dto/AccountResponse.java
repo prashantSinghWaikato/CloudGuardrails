@@ -19,4 +19,9 @@ public class AccountResponse {
     private String lastSyncAt;
     private String lastSyncStatus;
     private String lastSyncMessage;
+    private Integer lastScanEventsSeen;
+    private Integer lastScanEventsIngested;
+    private Integer lastScanDuplicatesSkipped;
+    private Integer lastScanViolationsCreated;
+    private Integer lastScanPostureFindingsCreated;
 }

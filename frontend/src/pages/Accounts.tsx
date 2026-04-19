@@ -5,11 +5,12 @@ import {
     updateAccount,
     activateAccount,
     scanAccount,
+    fetchAccountScanHistory,
     deleteAccount,
 } from "../api/accountApi";
 import AccountModal from "../components/AccountModal";
 import AccountActivationModal from "../components/AccountActivationModal";
-import type { AccountActivationFormData, AccountFormData, CloudAccount } from "../types";
+import type { AccountActivationFormData, AccountFormData, AccountScanRun, CloudAccount } from "../types";
 
 const Accounts = () => {
     const [accounts, setAccounts] = useState<CloudAccount[]>([]);
@@ -19,6 +20,9 @@ const Accounts = () => {
     const [editing, setEditing] = useState<CloudAccount | null>(null);
     const [activationTarget, setActivationTarget] = useState<CloudAccount | null>(null);
     const [scanTargetId, setScanTargetId] = useState<number | null>(null);
+    const [historyTarget, setHistoryTarget] = useState<CloudAccount | null>(null);
+    const [historyRuns, setHistoryRuns] = useState<AccountScanRun[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     const load = async () => {
         try {
@@ -61,11 +65,31 @@ const Accounts = () => {
             setScanTargetId(accountId);
             await scanAccount(accountId);
             await load();
+            if (historyTarget?.id === accountId) {
+                await loadHistory(accountId);
+            }
         } catch (e) {
             console.error(e);
         } finally {
             setScanTargetId(null);
         }
+    };
+
+    const loadHistory = async (accountId: number) => {
+        try {
+            setHistoryLoading(true);
+            const data = await fetchAccountScanHistory(accountId);
+            setHistoryRuns(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    const openHistory = async (account: CloudAccount) => {
+        setHistoryTarget(account);
+        await loadHistory(account.id);
     };
 
     const renderStatus = (account: CloudAccount) => {
@@ -78,6 +102,52 @@ const Accounts = () => {
         return (
             <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${classes}`}>
                 {label}
+            </span>
+        );
+    };
+
+    const renderLastSync = (account: CloudAccount) => {
+        const stats = [
+            ["Seen", account.lastScanEventsSeen],
+            ["Ingested", account.lastScanEventsIngested],
+            ["Dupes", account.lastScanDuplicatesSkipped],
+            ["Violations", account.lastScanViolationsCreated],
+            ["Posture", account.lastScanPostureFindingsCreated],
+        ].filter(([, value]) => value !== null && value !== undefined);
+
+        return (
+            <div className="space-y-1 text-xs">
+                <div className="text-gray-200">
+                    {account.lastSyncAt ? new Date(account.lastSyncAt).toLocaleString() : "Never"}
+                </div>
+                <div className="text-gray-400">
+                    {account.lastSyncStatus ?? "No status"}
+                </div>
+                {stats.length > 0 && (
+                    <div className="text-gray-500">
+                        {stats.map(([label, value]) => `${label}: ${value}`).join(" · ")}
+                    </div>
+                )}
+                {account.lastSyncMessage && (
+                    <div className="max-w-md truncate text-gray-500" title={account.lastSyncMessage}>
+                        {account.lastSyncMessage}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderHistoryStatus = (run: AccountScanRun) => {
+        const success = run.status === "SUCCESS";
+        return (
+            <span
+                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    success
+                        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+                        : "border-amber-500/25 bg-amber-500/10 text-amber-300"
+                }`}
+            >
+                {run.status ?? "UNKNOWN"}
             </span>
         );
     };
@@ -148,15 +218,7 @@ const Accounts = () => {
                                         <td className="px-4 py-4">
                                             {renderStatus(a)}
                                         </td>
-                                        <td className="px-4 py-4">
-                                            <div className="space-y-1 text-xs">
-                                                <div className="text-gray-300">
-                                                    {a.lastSyncAt
-                                                        ? new Date(a.lastSyncAt).toLocaleString()
-                                                        : "Never"}
-                                                </div>
-                                            </div>
-                                        </td>
+                                        <td className="px-4 py-4">{renderLastSync(a)}</td>
 
                                         <td className="px-4 py-4">
                                             <div className="flex items-center justify-end gap-3">
@@ -173,6 +235,13 @@ const Accounts = () => {
                                                     className="text-emerald-400 hover:text-emerald-300"
                                                 >
                                                     {a.monitoringEnabled ? "Re-activate" : "Activate"}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => openHistory(a)}
+                                                    className="text-violet-400 hover:text-violet-300"
+                                                >
+                                                    History
                                                 </button>
 
                                                 <button
@@ -200,6 +269,72 @@ const Accounts = () => {
                     </div>
                 )}
             </div>
+
+            {historyTarget && (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-100">
+                                Scan History: {historyTarget.name}
+                            </h2>
+                            <p className="text-sm text-gray-400">
+                                Latest diagnostics and current-state posture scan results for account {historyTarget.accountId}
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setHistoryTarget(null);
+                                setHistoryRuns([]);
+                            }}
+                            className="text-sm text-gray-400 hover:text-gray-200"
+                        >
+                            Close
+                        </button>
+                    </div>
+
+                    {historyLoading ? (
+                        <p className="text-sm text-gray-400">Loading scan history...</p>
+                    ) : historyRuns.length === 0 ? (
+                        <p className="text-sm text-gray-400">No scan history available yet.</p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="border-b border-gray-800 text-gray-400">
+                                    <tr>
+                                        <th className="px-3 py-3 text-left font-medium">Started</th>
+                                        <th className="px-3 py-3 text-left font-medium">Completed</th>
+                                        <th className="px-3 py-3 text-left font-medium">Status</th>
+                                        <th className="px-3 py-3 text-left font-medium">Diagnostics</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {historyRuns.map((run) => (
+                                        <tr key={run.id} className="border-b border-gray-800/80 last:border-0 align-top">
+                                            <td className="px-3 py-3 text-gray-300">
+                                                {run.startedAt ? new Date(run.startedAt).toLocaleString() : "-"}
+                                            </td>
+                                            <td className="px-3 py-3 text-gray-300">
+                                                {run.completedAt ? new Date(run.completedAt).toLocaleString() : "-"}
+                                            </td>
+                                            <td className="px-3 py-3">{renderHistoryStatus(run)}</td>
+                                            <td className="px-3 py-3 text-xs text-gray-400">
+                                                <div>
+                                                    Seen: {run.eventsSeen ?? 0} · Ingested: {run.eventsIngested ?? 0} · Duplicates: {run.duplicatesSkipped ?? 0}
+                                                </div>
+                                                <div>
+                                                    Event violations: {run.violationsCreated ?? 0} · Posture findings: {run.postureFindingsCreated ?? 0}
+                                                </div>
+                                                <div className="mt-1 text-gray-500">{run.message ?? "-"}</div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Modal */}
             <AccountModal

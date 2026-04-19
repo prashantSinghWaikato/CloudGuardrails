@@ -2,6 +2,7 @@ import { apiFetch, readApiError } from "./api";
 import type {
     AccountActivationFormData,
     AccountFormData,
+    AccountScanRun,
     AccountValidationResponse,
     CloudAccount,
 } from "../types";
@@ -36,6 +37,12 @@ export const scanAccount = async (id: number) => {
     });
     if (!res.ok) throw new Error(await readApiError(res, "Failed to scan account"));
     return (await res.json()) as CloudAccount;
+};
+
+export const fetchAccountScanHistory = async (id: number) => {
+    const res = await apiFetch(`/accounts/${id}/scans`);
+    if (!res.ok) throw new Error(await readApiError(res, "Failed to fetch scan history"));
+    return (await res.json()) as AccountScanRun[];
 };
 
 export const updateAccount = async (id: number, data: AccountFormData) => {

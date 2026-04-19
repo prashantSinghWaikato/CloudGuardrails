@@ -57,18 +57,21 @@ public class ViolationService {
 
     // ================= EVENT PROCESSING =================
 
-    public void evaluate(Event event) {
+    public int evaluate(Event event) {
 
         if (event == null || event.getOrganization() == null || event.getCloudAccount() == null) {
             log.warn("Skipping event: missing organization or cloud account");
-            return;
+            return 0;
         }
 
+        int created = 0;
         for (RuleConfig.RuleDefinition ruleDef : ruleConfig.getList()) {
             if (isMatchingRule(ruleDef, event)) {
-                processRule(ruleDef, event);
+                created += processRule(ruleDef, event);
             }
         }
+
+        return created;
     }
 
     private boolean isMatchingRule(RuleConfig.RuleDefinition ruleDef, Event event) {
@@ -82,15 +85,15 @@ public class ViolationService {
     }
 
     @Transactional
-    private void processRule(RuleConfig.RuleDefinition ruleDef, Event event) {
+    private int processRule(RuleConfig.RuleDefinition ruleDef, Event event) {
 
         JsonNode payloadNode = parsePayload(event);
-        if (payloadNode == null) return;
+        if (payloadNode == null) return 0;
 
-        if (!conditionEvaluator.evaluate(ruleDef.getCondition(), payloadNode)) return;
+        if (!conditionEvaluator.evaluate(ruleDef.getCondition(), payloadNode)) return 0;
 
         Rule dbRule = fetchRule(ruleDef.getName());
-        if (dbRule == null || !Boolean.TRUE.equals(dbRule.getEnabled())) return;
+        if (dbRule == null || !Boolean.TRUE.equals(dbRule.getEnabled())) return 0;
 
         Long orgId = event.getOrganization().getId();
 
@@ -103,7 +106,7 @@ public class ViolationService {
                         event.getCloudAccount().getId()
                 );
 
-        if (exists) return;
+        if (exists) return 0;
 
         Violation savedViolation = violationRepository.save(buildViolation(event, dbRule));
 
@@ -111,6 +114,7 @@ public class ViolationService {
 
         realtimeMessagingService.sendViolation(savedViolation);
         notificationService.notifyViolationCreated(savedViolation);
+        return 1;
     }
 
     private JsonNode parsePayload(Event event) {
