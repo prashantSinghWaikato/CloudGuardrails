@@ -3,6 +3,7 @@ package com.cloud.guardrails.service;
 import com.cloud.guardrails.dto.EventDTO;
 import com.cloud.guardrails.entity.CloudAccount;
 import com.cloud.guardrails.exception.UnauthorizedException;
+import com.cloud.guardrails.util.TimeUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,7 +14,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -143,7 +143,7 @@ public class AwsPushIngestionService {
         }
 
         try {
-            return LocalDateTime.ofInstant(Instant.parse(timestamp), ZoneId.systemDefault());
+            return TimeUtils.fromInstantUtc(Instant.parse(timestamp));
         } catch (Exception ignored) {
             return null;
         }

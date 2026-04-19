@@ -9,12 +9,12 @@ import com.cloud.guardrails.exception.NotFoundException;
 import com.cloud.guardrails.repository.RemediationRepository;
 import com.cloud.guardrails.repository.ViolationRepository;
 import com.cloud.guardrails.security.UserContext;
+import com.cloud.guardrails.util.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -64,7 +64,7 @@ public class RemediationService {
                 .action(action)
                 .status(Boolean.TRUE.equals(rule.getAutoRemediation()) ? "EXECUTING" : "PENDING")
                 .attemptCount(0)
-                .createdAt(LocalDateTime.now())
+                .createdAt(TimeUtils.utcNow())
                 .targetAccountId(violation.getCloudAccount() != null ? violation.getCloudAccount().getAccountId() : null)
                 .targetResourceId(violation.getResourceId())
                 .lastTriggeredBy(Boolean.TRUE.equals(rule.getAutoRemediation()) ? "SYSTEM" : null)
@@ -112,7 +112,7 @@ public class RemediationService {
                 response.put("status", "already_compliant");
                 response.put("action", normalizeAction(remediation.getAction()));
                 response.put("resourceId", remediation.getTargetResourceId());
-                response.put("timestamp", LocalDateTime.now().toString());
+                response.put("timestamp", TimeUtils.formatUtc(TimeUtils.utcNow()));
                 response.put("message", "Resource already compliant; remediation execution skipped");
                 response.put("verification", preVerification.details());
 
@@ -145,7 +145,7 @@ public class RemediationService {
 
             RemediationExecutor.ExecutionResult result = remediationExecutor.execute(remediation);
             remediation.setStatus(result.status());
-            remediation.setExecutedAt(LocalDateTime.now());
+            remediation.setExecutedAt(TimeUtils.utcNow());
             response = new HashMap<>(result.response());
 
             if ("EXECUTED".equals(result.status())) {
@@ -288,7 +288,7 @@ public class RemediationService {
         }
 
         violation.setStatus("FIXED");
-        violation.setUpdatedAt(LocalDateTime.now());
+        violation.setUpdatedAt(TimeUtils.utcNow());
         violationRepository.save(violation);
         realtimeMessagingService.sendViolation(violation);
     }
@@ -299,7 +299,7 @@ public class RemediationService {
         }
 
         violation.setStatus("OPEN");
-        violation.setUpdatedAt(LocalDateTime.now());
+        violation.setUpdatedAt(TimeUtils.utcNow());
         violationRepository.save(violation);
         realtimeMessagingService.sendViolation(violation);
     }
@@ -371,7 +371,7 @@ public class RemediationService {
 
     private void updateVerificationFields(Remediation remediation,
                                           RemediationVerifier.VerificationResult verification) {
-        remediation.setLastVerifiedAt(LocalDateTime.now());
+        remediation.setLastVerifiedAt(TimeUtils.utcNow());
         remediation.setVerificationStatus(String.valueOf(
                 verification.details().getOrDefault("verificationStatus", "UNKNOWN")));
         remediation.setVerificationMessage(String.valueOf(

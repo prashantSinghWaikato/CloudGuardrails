@@ -107,14 +107,6 @@ const Accounts = () => {
     };
 
     const renderLastSync = (account: CloudAccount) => {
-        const stats = [
-            ["Seen", account.lastScanEventsSeen],
-            ["Ingested", account.lastScanEventsIngested],
-            ["Dupes", account.lastScanDuplicatesSkipped],
-            ["Violations", account.lastScanViolationsCreated],
-            ["Posture", account.lastScanPostureFindingsCreated],
-        ].filter(([, value]) => value !== null && value !== undefined);
-
         return (
             <div className="space-y-1 text-xs">
                 <div className="text-gray-200">
@@ -123,16 +115,6 @@ const Accounts = () => {
                 <div className="text-gray-400">
                     {account.lastSyncStatus ?? "No status"}
                 </div>
-                {stats.length > 0 && (
-                    <div className="text-gray-500">
-                        {stats.map(([label, value]) => `${label}: ${value}`).join(" · ")}
-                    </div>
-                )}
-                {account.lastSyncMessage && (
-                    <div className="max-w-md truncate text-gray-500" title={account.lastSyncMessage}>
-                        {account.lastSyncMessage}
-                    </div>
-                )}
             </div>
         );
     };

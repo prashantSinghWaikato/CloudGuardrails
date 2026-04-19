@@ -7,6 +7,7 @@ import com.cloud.guardrails.repository.AccountScanRunRepository;
 import com.cloud.guardrails.repository.CloudAccountRepository;
 import com.cloud.guardrails.repository.EventRepository;
 import com.cloud.guardrails.service.ViolationService;
+import com.cloud.guardrails.util.TimeUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +35,6 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.Type;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -431,7 +431,7 @@ public class AwsIngestionService {
                 .payload(payload)
                 .organization(account.getOrganization())
                 .cloudAccount(account)
-                .timestamp(LocalDateTime.now())
+                .timestamp(TimeUtils.utcNow())
                 .build());
 
         return violationService.evaluate(event);
@@ -441,14 +441,14 @@ public class AwsIngestionService {
         return accountScanRunRepository.save(AccountScanRun.builder()
                 .cloudAccount(account)
                 .organization(account.getOrganization())
-                .startedAt(LocalDateTime.now())
+                .startedAt(TimeUtils.utcNow())
                 .status("RUNNING")
                 .message("Scan started")
                 .build());
     }
 
     private void finishScanRun(AccountScanRun scanRun, String status, String message, ScanSummary summary) {
-        scanRun.setCompletedAt(LocalDateTime.now());
+        scanRun.setCompletedAt(TimeUtils.utcNow());
         scanRun.setStatus(status);
         scanRun.setMessage(truncateMessage(message));
         scanRun.setEventsSeen(summary.eventsSeen);
@@ -528,10 +528,10 @@ public class AwsIngestionService {
 
     private LocalDateTime resolveTimestamp(software.amazon.awssdk.services.cloudtrail.model.Event event) {
         if (event.eventTime() != null) {
-            return LocalDateTime.ofInstant(event.eventTime(), ZoneId.systemDefault());
+            return TimeUtils.fromInstantUtc(event.eventTime());
         }
 
-        return LocalDateTime.now();
+        return TimeUtils.utcNow();
     }
 
     private void validateAccount(CloudAccount account) {
@@ -559,7 +559,7 @@ public class AwsIngestionService {
     }
 
     private void markSync(CloudAccount account, String status, String message) {
-        account.setLastSyncAt(LocalDateTime.now());
+        account.setLastSyncAt(TimeUtils.utcNow());
         account.setLastSyncStatus(status);
         account.setLastSyncMessage(truncateMessage(message));
         cloudAccountRepository.save(account);

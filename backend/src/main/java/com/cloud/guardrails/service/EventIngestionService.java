@@ -5,10 +5,9 @@ import com.cloud.guardrails.entity.CloudAccount;
 import com.cloud.guardrails.entity.Event;
 import com.cloud.guardrails.entity.Organization;
 import com.cloud.guardrails.repository.EventRepository;
+import com.cloud.guardrails.util.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -43,7 +42,7 @@ public class EventIngestionService {
                 .resourceId(dto.getResourceId())
                 .externalEventId(dto.getExternalEventId())
                 .payload(dto.getPayload())
-                .timestamp(dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now())
+                .timestamp(dto.getTimestamp() != null ? dto.getTimestamp() : TimeUtils.utcNow())
                 .organization(organization)
                 .cloudAccount(cloudAccount)
                 .build();

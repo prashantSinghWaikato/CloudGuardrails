@@ -9,6 +9,7 @@ import com.cloud.guardrails.entity.Violation;
 import com.cloud.guardrails.exception.NotFoundException;
 import com.cloud.guardrails.repository.NotificationRepository;
 import com.cloud.guardrails.repository.UserRepository;
+import com.cloud.guardrails.util.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -165,7 +166,7 @@ public class NotificationService {
                     .severity(severity)
                     .resourceId(resourceId)
                     .read(false)
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(TimeUtils.utcNow())
                     .organization(organization)
                     .user(user)
                     .violation(violation)
@@ -185,7 +186,7 @@ public class NotificationService {
                 .severity(notification.getSeverity())
                 .resourceId(notification.getResourceId())
                 .read(notification.getRead())
-                .createdAt(notification.getCreatedAt())
+                .createdAt(TimeUtils.formatUtc(notification.getCreatedAt()))
                 .violationId(notification.getViolation() != null ? notification.getViolation().getId() : null)
                 .remediationId(notification.getRemediation() != null ? notification.getRemediation().getId() : null)
                 .build();

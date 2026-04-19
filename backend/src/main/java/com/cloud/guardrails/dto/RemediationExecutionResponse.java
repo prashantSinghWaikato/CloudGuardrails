@@ -3,7 +3,6 @@ package com.cloud.guardrails.dto;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 
 @Data
@@ -19,7 +18,7 @@ public class RemediationExecutionResponse {
     private String status;
     private String verificationStatus;
     private String verificationMessage;
-    private LocalDateTime startedAt;
-    private LocalDateTime completedAt;
+    private String startedAt;
+    private String completedAt;
     private Map<String, Object> response;
 }

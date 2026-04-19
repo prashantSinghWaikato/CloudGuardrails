@@ -4,11 +4,11 @@ import com.cloud.guardrails.dto.RemediationExecutionResponse;
 import com.cloud.guardrails.entity.Remediation;
 import com.cloud.guardrails.entity.RemediationExecution;
 import com.cloud.guardrails.repository.RemediationExecutionRepository;
+import com.cloud.guardrails.util.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +32,7 @@ public class RemediationHistoryService {
                 .targetAccountId(remediation.getTargetAccountId())
                 .targetResourceId(remediation.getTargetResourceId())
                 .status(remediation.getStatus())
-                .startedAt(LocalDateTime.now())
+                .startedAt(TimeUtils.utcNow())
                 .build());
     }
 
@@ -45,7 +45,7 @@ public class RemediationHistoryService {
         execution.setStatus(status);
         execution.setVerificationStatus(verificationStatus);
         execution.setVerificationMessage(verificationMessage);
-        execution.setCompletedAt(LocalDateTime.now());
+        execution.setCompletedAt(TimeUtils.utcNow());
         execution.setResponse(response);
         return remediationExecutionRepository.save(execution);
     }
@@ -69,8 +69,8 @@ public class RemediationHistoryService {
                 .status(execution.getStatus())
                 .verificationStatus(execution.getVerificationStatus())
                 .verificationMessage(execution.getVerificationMessage())
-                .startedAt(execution.getStartedAt())
-                .completedAt(execution.getCompletedAt())
+                .startedAt(TimeUtils.formatUtc(execution.getStartedAt()))
+                .completedAt(TimeUtils.formatUtc(execution.getCompletedAt()))
                 .response(execution.getResponse())
                 .build();
     }

@@ -1,6 +1,7 @@
 package com.cloud.guardrails.security;
 
 import com.cloud.guardrails.dto.ErrorResponse;
+import com.cloud.guardrails.util.TimeUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,8 +13,6 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-
 @Component
 @RequiredArgsConstructor
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -41,7 +40,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
         ErrorResponse body = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(TimeUtils.formatUtc(TimeUtils.utcNow()))
                 .status(status.value())
                 .error(status.getReasonPhrase())
                 .message(message)

@@ -7,6 +7,7 @@ import com.cloud.guardrails.dto.ViolationResponse;
 import com.cloud.guardrails.entity.Notification;
 import com.cloud.guardrails.entity.Remediation;
 import com.cloud.guardrails.entity.Violation;
+import com.cloud.guardrails.util.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -45,8 +46,8 @@ public class ResponseMapper {
                 .action(remediation.getAction())
                 .status(remediation.getStatus())
                 .attemptCount(remediation.getAttemptCount())
-                .executedAt(remediation.getExecutedAt())
-                .lastVerifiedAt(remediation.getLastVerifiedAt())
+                .executedAt(TimeUtils.formatUtc(remediation.getExecutedAt()))
+                .lastVerifiedAt(TimeUtils.formatUtc(remediation.getLastVerifiedAt()))
                 .ruleName(ruleName)
                 .resourceId(resourceId)
                 .targetAccountId(remediation.getTargetAccountId())
@@ -71,11 +72,11 @@ public class ResponseMapper {
                 .provider(violation.getCloudAccount() != null ? violation.getCloudAccount().getProvider() : null)
                 .region(violation.getCloudAccount() != null ? violation.getCloudAccount().getRegion() : null)
                 .organizationName(violation.getOrganization() != null ? violation.getOrganization().getName() : null)
-                .createdAt(violation.getCreatedAt())
-                .updatedAt(violation.getUpdatedAt())
+                .createdAt(TimeUtils.formatUtc(violation.getCreatedAt()))
+                .updatedAt(TimeUtils.formatUtc(violation.getUpdatedAt()))
                 .eventType(violation.getEvent() != null ? violation.getEvent().getEventType() : null)
                 .externalEventId(violation.getEvent() != null ? violation.getEvent().getExternalEventId() : null)
-                .eventTimestamp(violation.getEvent() != null ? violation.getEvent().getTimestamp() : null)
+                .eventTimestamp(violation.getEvent() != null ? TimeUtils.formatUtc(violation.getEvent().getTimestamp()) : null)
                 .payload(violation.getEvent() != null ? violation.getEvent().getPayload() : null)
                 .remediation(remediation != null ? toRemediationResponse(remediation) : null)
                 .build();
@@ -90,7 +91,7 @@ public class ResponseMapper {
                 .severity(notification.getSeverity())
                 .resourceId(notification.getResourceId())
                 .read(notification.getRead())
-                .createdAt(notification.getCreatedAt())
+                .createdAt(TimeUtils.formatUtc(notification.getCreatedAt()))
                 .violationId(notification.getViolation() != null ? notification.getViolation().getId() : null)
                 .remediationId(notification.getRemediation() != null ? notification.getRemediation().getId() : null)
                 .build();

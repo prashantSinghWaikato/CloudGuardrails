@@ -10,6 +10,7 @@ import com.cloud.guardrails.exception.NotFoundException;
 import com.cloud.guardrails.repository.RuleRepository;
 import com.cloud.guardrails.repository.ViolationRepository;
 import com.cloud.guardrails.security.UserContext;
+import com.cloud.guardrails.util.TimeUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -140,8 +140,8 @@ public class ViolationService {
                 .resourceId(event.getResourceId())
                 .severity(rule.getSeverity())
                 .status("OPEN")
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .createdAt(TimeUtils.utcNow())
+                .updatedAt(TimeUtils.utcNow())
                 .build();
     }
 
@@ -240,7 +240,7 @@ public class ViolationService {
         Violation v = getById(id);
 
         v.setStatus(status);
-        v.setUpdatedAt(LocalDateTime.now());
+        v.setUpdatedAt(TimeUtils.utcNow());
 
         return violationRepository.save(v);
     }

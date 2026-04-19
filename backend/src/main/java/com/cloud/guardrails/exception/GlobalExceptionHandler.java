@@ -1,13 +1,12 @@
 package com.cloud.guardrails.exception;
 
 import com.cloud.guardrails.dto.ErrorResponse;
+import com.cloud.guardrails.util.TimeUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.time.LocalDateTime;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -59,7 +58,7 @@ public class GlobalExceptionHandler {
                                                         String message,
                                                         HttpServletRequest request) {
         ErrorResponse body = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(TimeUtils.formatUtc(TimeUtils.utcNow()))
                 .status(status.value())
                 .error(status.getReasonPhrase())
                 .message(message != null ? message : status.getReasonPhrase())

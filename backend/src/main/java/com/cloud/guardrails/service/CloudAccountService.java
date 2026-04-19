@@ -18,10 +18,10 @@ import com.cloud.guardrails.repository.OrganizationRepository;
 import com.cloud.guardrails.repository.UserRepository;
 import com.cloud.guardrails.security.CredentialCryptoService;
 import com.cloud.guardrails.security.UserContext;
+import com.cloud.guardrails.util.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,7 +60,7 @@ public class CloudAccountService {
                 .activationStatus("PENDING")
                 .activationMethod(null)
                 .organization(org)
-                .createdAt(LocalDateTime.now())
+                .createdAt(TimeUtils.utcNow())
                 .build();
 
         repository.save(account);
@@ -98,8 +98,8 @@ public class CloudAccountService {
                 .activationStatus(acc.getActivationStatus())
                 .activationMethod(acc.getActivationMethod())
                 .roleArn(acc.getRoleArn())
-                .lastActivatedAt(acc.getLastActivatedAt() != null ? acc.getLastActivatedAt().toString() : null)
-                .lastSyncAt(acc.getLastSyncAt() != null ? acc.getLastSyncAt().toString() : null)
+                .lastActivatedAt(TimeUtils.formatUtc(acc.getLastActivatedAt()))
+                .lastSyncAt(TimeUtils.formatUtc(acc.getLastSyncAt()))
                 .lastSyncStatus(acc.getLastSyncStatus())
                 .lastSyncMessage(acc.getLastSyncMessage())
                 .lastScanEventsSeen(latestScan != null ? latestScan.getEventsSeen() : null)
@@ -211,7 +211,7 @@ public class CloudAccountService {
         account.setMonitoringEnabled(true);
         account.setActivationStatus("ACTIVE");
         account.setActivationMethod("ASSUME_ROLE");
-        account.setLastActivatedAt(LocalDateTime.now());
+        account.setLastActivatedAt(TimeUtils.utcNow());
         account.setLastSyncStatus("READY");
         account.setLastSyncMessage(validation.getMessage());
 
@@ -327,8 +327,8 @@ public class CloudAccountService {
     private AccountScanRunResponse mapScanRun(AccountScanRun scanRun) {
         return AccountScanRunResponse.builder()
                 .id(scanRun.getId())
-                .startedAt(scanRun.getStartedAt() != null ? scanRun.getStartedAt().toString() : null)
-                .completedAt(scanRun.getCompletedAt() != null ? scanRun.getCompletedAt().toString() : null)
+                .startedAt(TimeUtils.formatUtc(scanRun.getStartedAt()))
+                .completedAt(TimeUtils.formatUtc(scanRun.getCompletedAt()))
                 .status(scanRun.getStatus())
                 .message(scanRun.getMessage())
                 .eventsSeen(scanRun.getEventsSeen())

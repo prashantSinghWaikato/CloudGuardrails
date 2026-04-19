@@ -3,8 +3,6 @@ package com.cloud.guardrails.dto;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 @Data
 @Builder
 public class NotificationResponse {
@@ -15,7 +13,7 @@ public class NotificationResponse {
     private String severity;
     private String resourceId;
     private Boolean read;
-    private LocalDateTime createdAt;
+    private String createdAt;
     private Long violationId;
     private Long remediationId;
 }

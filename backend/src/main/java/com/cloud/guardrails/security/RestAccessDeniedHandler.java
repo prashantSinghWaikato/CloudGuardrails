@@ -1,6 +1,7 @@
 package com.cloud.guardrails.security;
 
 import com.cloud.guardrails.dto.ErrorResponse;
+import com.cloud.guardrails.util.TimeUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,8 +13,6 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-
 @Component
 @RequiredArgsConstructor
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
@@ -28,7 +27,7 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
         ErrorResponse body = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(TimeUtils.formatUtc(TimeUtils.utcNow()))
                 .status(HttpStatus.FORBIDDEN.value())
                 .error(HttpStatus.FORBIDDEN.getReasonPhrase())
                 .message("You do not have permission to access this resource")

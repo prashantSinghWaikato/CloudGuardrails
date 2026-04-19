@@ -5,10 +5,10 @@ import com.cloud.guardrails.aws.AwsSecurityGroupRemediationService;
 import com.cloud.guardrails.aws.AwsS3RemediationService;
 import com.cloud.guardrails.entity.Remediation;
 import com.cloud.guardrails.entity.Violation;
+import com.cloud.guardrails.util.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -28,7 +28,7 @@ public class RemediationExecutor {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("action", action);
         response.put("resourceId", violation != null ? violation.getResourceId() : null);
-        response.put("timestamp", LocalDateTime.now().toString());
+        response.put("timestamp", TimeUtils.formatUtc(TimeUtils.utcNow()));
 
         return switch (action) {
             case "BLOCK_PUBLIC_S3_ACCESS" -> blockPublicS3Access(remediation, response);

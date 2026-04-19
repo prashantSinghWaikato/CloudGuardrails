@@ -3,7 +3,6 @@ package com.cloud.guardrails.dto;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -14,8 +13,8 @@ public class RemediationResponse {
     private String action;
     private String status;
     private Integer attemptCount;
-    private LocalDateTime executedAt;
-    private LocalDateTime lastVerifiedAt;
+    private String executedAt;
+    private String lastVerifiedAt;
     private String ruleName;
     private String resourceId;
     private String targetAccountId;
