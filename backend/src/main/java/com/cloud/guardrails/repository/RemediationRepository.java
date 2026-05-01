@@ -15,7 +15,7 @@ public interface RemediationRepository extends JpaRepository<Remediation, Long> 
     );
 
     // ✅ ORG SAFE FETCH
-    Optional<Remediation> findByViolationIdAndViolation_Organization_Id(
+    Optional<Remediation> findTopByViolationIdAndViolation_Organization_IdOrderByCreatedAtDescIdDesc(
             Long violationId,
             Long organizationId
     );

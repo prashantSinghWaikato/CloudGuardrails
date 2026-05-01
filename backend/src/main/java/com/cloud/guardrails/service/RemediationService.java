@@ -42,7 +42,7 @@ public class RemediationService {
         Long orgId = violation.getOrganization().getId();
 
         var existing = remediationRepository
-                .findByViolationIdAndViolation_Organization_Id(
+                .findTopByViolationIdAndViolation_Organization_IdOrderByCreatedAtDescIdDesc(
                         violation.getId(),
                         orgId
                 );
@@ -206,7 +206,10 @@ public class RemediationService {
         }
 
         return remediationRepository
-                .findByViolationIdAndViolation_Organization_Id(violation.getId(), violation.getOrganization().getId())
+                .findTopByViolationIdAndViolation_Organization_IdOrderByCreatedAtDescIdDesc(
+                        violation.getId(),
+                        violation.getOrganization().getId()
+                )
                 .orElse(null);
     }
 
