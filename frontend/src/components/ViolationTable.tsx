@@ -27,6 +27,10 @@ const SEVERITY_OPTIONS: Array<Severity | typeof ALL_OPTION> = [
 ];
 const STATUS_OPTIONS = [ALL_OPTION, "OPEN", "FIXED"];
 
+const displayStatus = (status: string) => {
+    return status === "FIXED" ? "CLOSED" : status;
+};
+
 const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
     const [violations, setViolations] = useState<Violation[]>([]);
     const [loading, setLoading] = useState(true);
@@ -262,7 +266,9 @@ const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
                                     hover:bg-blue-500/10`}
                                         >
                                             <td className="py-3 truncate">{v.ruleName}</td>
-                                            <td className="truncate">{v.resourceId}</td>
+                                            <td className="truncate" title={v.resourceId}>
+                                                <span className="block max-w-full truncate">{v.resourceId}</span>
+                                            </td>
                                             <td className="truncate">{v.accountId}</td>
 
                                             <td className="text-center">
@@ -273,7 +279,7 @@ const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
 
                                             <td className="text-center">
                                                 <span className={`px-2 py-1 text-xs rounded border ${getStatusClass(v.status)}`}>
-                                                    {v.status}
+                                                    {displayStatus(v.status)}
                                                 </span>
                                             </td>
 
@@ -293,7 +299,7 @@ const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
                                                             : "bg-slate-700/60 text-slate-400 cursor-not-allowed"
                                                     }`}
                                                 >
-                                                    {canFix ? "Fix" : "Fixed"}
+                                                    {canFix ? "Fix" : "Closed"}
                                                 </button>
                                             </td>
                                         </tr>

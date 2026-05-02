@@ -9,6 +9,14 @@ type Props = {
     data: Violation | null;
 };
 
+const displayStatus = (status: string | null | undefined) => {
+    if (!status) {
+        return "N/A";
+    }
+
+    return status === "FIXED" ? "CLOSED" : status;
+};
+
 const ViolationDrawer = ({ open, onClose, data }: Props) => {
     const [detail, setDetail] = useState<ViolationDetail | null>(null);
     const [loading, setLoading] = useState(false);
@@ -105,7 +113,7 @@ const ViolationDrawer = ({ open, onClose, data }: Props) => {
                             </div>
                             <div>
                                 <p className="text-gray-400">Status</p>
-                                <p>{detail.status}</p>
+                                <p>{displayStatus(detail.status)}</p>
                             </div>
                             <div>
                                 <p className="text-gray-400">Account</p>
