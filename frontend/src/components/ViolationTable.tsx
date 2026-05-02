@@ -234,12 +234,12 @@ const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
 
                         <thead className="text-gray-400 text-xs uppercase border-b border-gray-800">
                             <tr>
-                                <th className="text-left py-3 w-[25%]">Rule</th>
-                                <th className="text-left w-[20%]">Resource</th>
-                                <th className="text-left w-[20%]">Account</th>
-                                <th className="w-[15%] text-center">Severity</th>
-                                <th className="w-[15%] text-center">Status</th>
-                                <th className="w-[10%] text-center">Fix</th>
+                                <th className="text-left py-3 w-[24%]">Rule</th>
+                                <th className="text-left w-[30%]">Resource</th>
+                                <th className="text-left w-[14%]">Account</th>
+                                <th className="w-[12%] text-center">Severity</th>
+                                <th className="w-[12%] text-center">Status</th>
+                                <th className="w-[8%] text-center">Fix</th>
                             </tr>
                         </thead>
 
@@ -265,11 +265,11 @@ const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
                                     ${i % 2 ? "bg-gray-900/40" : ""}
                                     hover:bg-blue-500/10`}
                                         >
-                                            <td className="py-3 truncate">{v.ruleName}</td>
-                                            <td className="truncate" title={v.resourceId}>
+                                            <td className="py-3 pr-4 truncate" title={v.ruleName}>{v.ruleName}</td>
+                                            <td className="pr-8" title={v.resourceId}>
                                                 <span className="block max-w-full truncate">{v.resourceId}</span>
                                             </td>
-                                            <td className="truncate">{v.accountId}</td>
+                                            <td className="pl-2 pr-4 truncate" title={v.accountId}>{v.accountId}</td>
 
                                             <td className="text-center">
                                                 <span className={`px-2 py-1 text-xs rounded ${getSeverityColor(v.severity)}`}>
@@ -299,7 +299,7 @@ const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
                                                             : "bg-slate-700/60 text-slate-400 cursor-not-allowed"
                                                     }`}
                                                 >
-                                                    {canFix ? "Fix" : "Closed"}
+                                                    {canFix ? "Fix" : "Fixed"}
                                                 </button>
                                             </td>
                                         </tr>
