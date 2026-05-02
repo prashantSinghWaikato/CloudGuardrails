@@ -77,29 +77,6 @@ const RemediationTable = () => {
         }
     };
 
-    const getStatusClass = (status: string) => {
-        switch (status) {
-            case "EXECUTED":
-                return "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20";
-            case "VERIFIED":
-                return "bg-emerald-500/15 text-emerald-200 border border-emerald-400/30";
-            case "VERIFICATION_FAILED":
-                return "bg-rose-500/10 text-rose-300 border border-rose-500/20";
-            case "MANUAL_ACTION_REQUIRED":
-                return "bg-amber-500/10 text-amber-300 border border-amber-500/20";
-            case "FAILED":
-                return "bg-red-500/10 text-red-300 border border-red-500/20";
-            case "EXECUTING":
-                return "bg-blue-500/10 text-blue-300 border border-blue-500/20";
-            case "APPROVED":
-                return "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20";
-            case "PENDING":
-                return "bg-slate-500/10 text-slate-300 border border-slate-500/20";
-            default:
-                return "bg-slate-500/10 text-slate-300 border border-slate-500/20";
-        }
-    };
-
     const getVerificationTone = (status?: string | null) => {
         switch (status) {
             case "PASSED":
@@ -158,7 +135,6 @@ const RemediationTable = () => {
                                 <th className="text-left">Rule</th>
                                 <th className="text-left">Resource</th>
                                 <th className="text-left">Verification</th>
-                                <th className="text-left">Status</th>
                                 <th className="text-right">Controls</th>
                             </tr>
                         </thead>
@@ -166,7 +142,7 @@ const RemediationTable = () => {
                         <tbody>
                             {data.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="py-6 text-center text-gray-400">
+                                    <td colSpan={5} className="py-6 text-center text-gray-400">
                                         No remediations
                                     </td>
                                 </tr>
@@ -190,7 +166,18 @@ const RemediationTable = () => {
 
                                     return (
                                         <Fragment key={r.id}>
-                                            <tr className="border-b border-gray-800 align-top">
+                                            <tr
+                                                onClick={() => {
+                                                    if (!hasDetails) {
+                                                        return;
+                                                    }
+
+                                                    setExpandedId((current) => current === r.id ? null : r.id);
+                                                }}
+                                                className={`border-b border-gray-800 align-top ${
+                                                    hasDetails ? "cursor-pointer hover:bg-white/[0.03]" : ""
+                                                }`}
+                                            >
                                                 <td className="py-3">{r.action}</td>
                                                 <td className="py-3">{r.ruleName}</td>
                                                 <td className="py-3">{r.resourceId}</td>
@@ -204,19 +191,13 @@ const RemediationTable = () => {
                                                     </span>
                                                 </td>
                                                 <td className="py-3">
-                                                    <span
-                                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs ${getStatusClass(
-                                                            r.status
-                                                        )}`}
-                                                    >
-                                                        {r.status}
-                                                    </span>
-                                                </td>
-                                                <td className="py-3">
                                                     <div className="flex items-center justify-end gap-2">
                                                         {r.status === "PENDING" && (
                                                             <button
-                                                                onClick={() => void handleApprove(r.id)}
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    void handleApprove(r.id);
+                                                                }}
                                                                 className="rounded bg-blue-600 px-2 py-1 text-xs hover:bg-blue-700"
                                                             >
                                                                 Approve
@@ -227,7 +208,10 @@ const RemediationTable = () => {
                                                             r.status === "MANUAL_ACTION_REQUIRED" ||
                                                             r.status === "VERIFICATION_FAILED") && (
                                                             <button
-                                                                onClick={() => void handleRetry(r.id)}
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    void handleRetry(r.id);
+                                                                }}
                                                                 className="rounded bg-amber-500/20 px-2 py-1 text-xs text-amber-200 hover:bg-amber-500/30"
                                                             >
                                                                 Retry
@@ -238,23 +222,13 @@ const RemediationTable = () => {
                                                             r.status === "VERIFICATION_FAILED" ||
                                                             r.status === "VERIFIED") && (
                                                             <button
-                                                                onClick={() => void handleReverify(r.id)}
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    void handleReverify(r.id);
+                                                                }}
                                                                 className="rounded bg-cyan-500/15 px-2 py-1 text-xs text-cyan-200 hover:bg-cyan-500/25"
                                                             >
                                                                 Reverify
-                                                            </button>
-                                                        )}
-
-                                                        {hasDetails && (
-                                                            <button
-                                                                onClick={() =>
-                                                                    setExpandedId((current) =>
-                                                                        current === r.id ? null : r.id
-                                                                    )
-                                                                }
-                                                                className="rounded border border-white/10 px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-                                                            >
-                                                                {expanded ? "Hide Details" : "View Details"}
                                                             </button>
                                                         )}
                                                     </div>
@@ -263,7 +237,7 @@ const RemediationTable = () => {
 
                                             {expanded && (
                                                 <tr className="border-b border-gray-800 bg-black/10">
-                                                    <td colSpan={6} className="p-4">
+                                                    <td colSpan={5} className="p-4">
                                                         <div className="space-y-4">
                                                             <div className="grid gap-3 xl:grid-cols-3">
                                                                 <div className="rounded-lg border border-white/10 bg-black/20 p-3">
