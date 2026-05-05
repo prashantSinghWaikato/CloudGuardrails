@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import jsPDF from "jspdf";
 import {
   fetchExecutiveReportRuns,
   fetchExecutiveReportSchedule,
@@ -43,14 +44,6 @@ const formatDateTime = (value: string | null | undefined) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
-
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 
 const ReportsPage = () => {
   const [runs, setRuns] = useState<ExecutiveReportRun[]>([]);
@@ -155,185 +148,209 @@ const ReportsPage = () => {
   };
 
   const handlePdfExport = (run: ExecutiveReportRun) => {
-    const popup = window.open("", "_blank", "noopener,noreferrer,width=1024,height=900");
+    setError(null);
+    try {
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4",
+      });
 
-    if (!popup) {
-      setError("Allow pop-ups to export the report as PDF.");
-      return;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 48;
+      const contentWidth = pageWidth - margin * 2;
+      const colors = {
+        ink: [15, 23, 42] as const,
+        body: [51, 65, 85] as const,
+        mute: [100, 116, 139] as const,
+        line: [203, 213, 225] as const,
+        panel: [248, 250, 252] as const,
+        accent: [14, 116, 144] as const,
+        accentSoft: [236, 254, 255] as const,
+      };
+      let y = margin;
+      let pageNumber = 1;
+
+      const ensureSpace = (needed = 24) => {
+        if (y + needed > pageHeight - margin) {
+          pdf.addPage();
+          pageNumber += 1;
+          y = margin;
+          drawFooter();
+        }
+      };
+
+      const addWrappedText = (text: string, x: number, fontSize: number, lineHeight: number, width = contentWidth - (x - margin)) => {
+        pdf.setFontSize(fontSize);
+        const lines = pdf.splitTextToSize(text, width);
+        lines.forEach((line: string) => {
+          ensureSpace(lineHeight);
+          pdf.text(line, x, y);
+          y += lineHeight;
+        });
+      };
+
+      const drawFooter = () => {
+        pdf.setDrawColor(...colors.line);
+        pdf.line(margin, pageHeight - 28, pageWidth - margin, pageHeight - 28);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.setTextColor(...colors.mute);
+        pdf.text("Cloud Guardrails", margin, pageHeight - 12);
+        pdf.text(`Page ${pageNumber}`, pageWidth - margin, pageHeight - 12, { align: "right" });
+      };
+
+      const drawSectionTitle = (title: string) => {
+        ensureSpace(28);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(15);
+        pdf.setTextColor(...colors.ink);
+        pdf.text(title, margin, y);
+        y += 10;
+        pdf.setDrawColor(...colors.line);
+        pdf.line(margin, y, pageWidth - margin, y);
+        y += 18;
+      };
+
+      const drawMetaChip = (x: number, width: number, label: string, value: string) => {
+        pdf.setFillColor(...colors.panel);
+        pdf.setDrawColor(...colors.line);
+        pdf.roundedRect(x, y, width, 44, 10, 10, "FD");
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(9);
+        pdf.setTextColor(...colors.mute);
+        pdf.text(label.toUpperCase(), x + 12, y + 14);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(...colors.ink);
+        const lines = pdf.splitTextToSize(value, width - 24);
+        lines.slice(0, 2).forEach((line: string, index: number) => {
+          pdf.text(line, x + 12, y + 29 + index * 12);
+        });
+      };
+
+      pdf.setFillColor(...colors.ink);
+      pdf.rect(0, 0, pageWidth, 116, "F");
+      pdf.setFillColor(...colors.accent);
+      pdf.rect(0, 0, 12, 116, "F");
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(24);
+      pdf.text("Cloud Guardrails Executive Summary", margin, 56);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      pdf.setTextColor(203, 213, 225);
+      pdf.text("Weekly security posture and remediation review", margin, 76);
+
+      y = 138;
+      const chipGap = 10;
+      const chipWidth = (contentWidth - chipGap * 2) / 3;
+      drawMetaChip(margin, chipWidth, "Generated", formatDateTime(run.createdAt));
+      drawMetaChip(margin + chipWidth + chipGap, chipWidth, "Period", `${formatDateTime(run.periodStart)} to ${formatDateTime(run.periodEnd)}`);
+      drawMetaChip(margin + (chipWidth + chipGap) * 2, chipWidth, "Delivery", `${run.triggerType} • ${run.emailStatus || "Not sent"}`);
+      y += 64;
+
+      const metricWidth = (contentWidth - 18) / 4;
+      const metrics = [
+        { label: "Findings", value: run.metrics.totalFindings },
+        { label: "Open", value: run.metrics.openFindings },
+        { label: "Critical", value: run.metrics.criticalFindings },
+        { label: "Closed", value: run.metrics.closedFindings },
+      ];
+
+      metrics.forEach((metric, index) => {
+        const x = margin + index * (metricWidth + 6);
+        pdf.setDrawColor(...colors.line);
+        pdf.setFillColor(...colors.panel);
+        pdf.roundedRect(x, y, metricWidth, 70, 10, 10, "FD");
+        pdf.setTextColor(...colors.mute);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(10);
+        pdf.text(metric.label.toUpperCase(), x + 12, y + 20);
+        pdf.setTextColor(...colors.accent);
+        pdf.setFontSize(24);
+        pdf.text(String(metric.value), x + 12, y + 50);
+      });
+      y += 94;
+
+      drawSectionTitle("Executive Overview");
+      ensureSpace(90);
+      pdf.setFillColor(...colors.accentSoft);
+      pdf.setDrawColor(190, 242, 100);
+      pdf.roundedRect(margin, y - 4, contentWidth, 84, 12, 12, "FD");
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...colors.body);
+      addWrappedText(run.summaryText || "No summary generated.", margin + 16, 11, 16, contentWidth - 32);
+      y += 14;
+
+      drawSectionTitle("Highest-Risk Accounts");
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...colors.body);
+      if (run.metrics.topAccounts.length === 0) {
+        addWrappedText("No account concentration for this period.", margin, 11, 16);
+      } else {
+        run.metrics.topAccounts.forEach((account) => {
+          ensureSpace(62);
+          pdf.setDrawColor(...colors.line);
+          pdf.setFillColor(255, 255, 255);
+          pdf.roundedRect(margin, y - 12, contentWidth, 52, 8, 8, "FD");
+          pdf.setFillColor(...colors.accent);
+          pdf.roundedRect(margin, y - 12, 6, 52, 8, 8, "F");
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(...colors.ink);
+          pdf.text(`${account.accountName} (${account.accountId})`, margin + 12, y + 2);
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(...colors.body);
+          pdf.text(
+            `${account.openFindings} open findings`,
+            margin + 12,
+            y + 20
+          );
+          pdf.text(
+            `${account.criticalFindings} critical issues | ${account.findingsCreated} created this period`,
+            margin + 12,
+            y + 36
+          );
+          y += 64;
+        });
+      }
+
+      drawSectionTitle("Top Rules");
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...colors.body);
+      if (run.metrics.topRules.length === 0) {
+        addWrappedText("No repeated rules for this period.", margin, 11, 16);
+      } else {
+        run.metrics.topRules.forEach((rule) => {
+          ensureSpace(28);
+          pdf.setDrawColor(...colors.line);
+          pdf.roundedRect(margin, y - 10, contentWidth, 24, 6, 6);
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(...colors.ink);
+          const ruleLines = pdf.splitTextToSize(rule.ruleName, contentWidth - 90);
+          pdf.text(ruleLines[0], margin + 12, y + 4);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(...colors.accent);
+          pdf.text(String(rule.count), pageWidth - margin - 12, y + 4, { align: "right" });
+          y += 32;
+        });
+      }
+      y += 6;
+
+      drawSectionTitle("Coverage Notes");
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...colors.body);
+      run.metrics.coverageNotes.forEach((note) => {
+        addWrappedText(`• ${note}`, margin, 11, 16);
+      });
+
+      drawFooter();
+      const safeDate = (run.createdAt || new Date().toISOString()).slice(0, 10);
+      pdf.save(`cloud-guardrails-executive-summary-${safeDate}.pdf`);
+    } catch {
+      setError("Failed to generate the PDF.");
     }
-
-    const summaryHtml = escapeHtml(run.summaryText || "No summary generated.").replaceAll("\n", "<br />");
-    const coverageHtml = run.metrics.coverageNotes
-      .map((note) => `<li>${escapeHtml(note)}</li>`)
-      .join("");
-    const accountsHtml = run.metrics.topAccounts
-      .map(
-        (account) => `
-          <tr>
-            <td>${escapeHtml(account.accountName)}</td>
-            <td>${escapeHtml(account.accountId)}</td>
-            <td>${account.openFindings}</td>
-            <td>${account.criticalFindings}</td>
-            <td>${account.findingsCreated}</td>
-          </tr>`
-      )
-      .join("");
-    const rulesHtml = run.metrics.topRules
-      .map(
-        (rule) => `
-          <tr>
-            <td>${escapeHtml(rule.ruleName)}</td>
-            <td>${rule.count}</td>
-          </tr>`
-      )
-      .join("");
-
-    popup.document.write(`
-      <!doctype html>
-      <html lang="en">
-        <head>
-          <meta charset="utf-8" />
-          <title>Cloud Guardrails Executive Summary</title>
-          <style>
-            body {
-              font-family: Helvetica, Arial, sans-serif;
-              color: #0f172a;
-              margin: 0;
-              padding: 40px;
-              line-height: 1.55;
-            }
-            h1, h2, h3 {
-              margin: 0 0 12px;
-            }
-            .meta {
-              margin-top: 8px;
-              color: #475569;
-              font-size: 13px;
-            }
-            .section {
-              margin-top: 28px;
-            }
-            .metrics {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 12px;
-              margin-top: 20px;
-            }
-            .metric {
-              border: 1px solid #cbd5e1;
-              border-radius: 12px;
-              padding: 14px;
-            }
-            .metric-label {
-              font-size: 11px;
-              text-transform: uppercase;
-              letter-spacing: 0.08em;
-              color: #64748b;
-            }
-            .metric-value {
-              margin-top: 10px;
-              font-size: 26px;
-              font-weight: 700;
-              color: #0f172a;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 12px;
-            }
-            th, td {
-              border: 1px solid #cbd5e1;
-              padding: 10px 12px;
-              text-align: left;
-              font-size: 13px;
-            }
-            th {
-              background: #f8fafc;
-            }
-            ul {
-              padding-left: 20px;
-            }
-            @media print {
-              body {
-                padding: 24px;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Cloud Guardrails Executive Summary</h1>
-          <div class="meta">Generated: ${escapeHtml(formatDateTime(run.createdAt))}</div>
-          <div class="meta">Period: ${escapeHtml(formatDateTime(run.periodStart))} to ${escapeHtml(formatDateTime(run.periodEnd))}</div>
-          <div class="meta">Source: ${escapeHtml(run.triggerType)} | Email: ${escapeHtml(run.emailStatus || "Not sent")}</div>
-
-          <div class="metrics">
-            <div class="metric">
-              <div class="metric-label">Findings</div>
-              <div class="metric-value">${run.metrics.totalFindings}</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Open</div>
-              <div class="metric-value">${run.metrics.openFindings}</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Critical</div>
-              <div class="metric-value">${run.metrics.criticalFindings}</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Closed</div>
-              <div class="metric-value">${run.metrics.closedFindings}</div>
-            </div>
-          </div>
-
-          <div class="section">
-            <h2>Executive Overview</h2>
-            <div>${summaryHtml}</div>
-          </div>
-
-          <div class="section">
-            <h2>Highest-Risk Accounts</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Account</th>
-                  <th>Account ID</th>
-                  <th>Open Findings</th>
-                  <th>Critical Findings</th>
-                  <th>Created This Period</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${accountsHtml || '<tr><td colspan="5">No account concentration for this period.</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-
-          <div class="section">
-            <h2>Top Rules</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Rule</th>
-                  <th>Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rulesHtml || '<tr><td colspan="2">No repeated rules for this period.</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-
-          <div class="section">
-            <h2>Coverage Notes</h2>
-            <ul>${coverageHtml}</ul>
-          </div>
-        </body>
-      </html>
-    `);
-
-    popup.document.close();
-    popup.focus();
-    popup.print();
   };
 
   return (
