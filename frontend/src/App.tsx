@@ -12,6 +12,7 @@ import TopRulesChart from "./components/charts/TopRulesChart";
 import ViolationsPage from "./pages/Violations";
 import Accounts from "./pages/Accounts";
 import RulesPage from "./pages/Rules";
+import ReportsPage from "./pages/Reports";
 import { fetchViolations } from "./api/ViolationApi";
 import { connectWebSocket } from "./api/Websocket";
 import type { Violation } from "./types";
@@ -233,6 +234,8 @@ function App() {
             <Route path="/accounts" element={<Accounts />} />
 
             <Route path="/rules" element={<RulesPage />} />
+
+            <Route path="/reports" element={<ReportsPage />} />
 
           </Route>
 

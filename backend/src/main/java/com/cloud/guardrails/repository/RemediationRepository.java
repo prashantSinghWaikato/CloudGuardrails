@@ -24,4 +24,6 @@ public interface RemediationRepository extends JpaRepository<Remediation, Long> 
             Long orgId,
             List<Long> accountIds
     );
+
+    List<Remediation> findByViolation_Organization_Id(Long orgId);
 }

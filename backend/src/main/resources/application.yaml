@@ -32,3 +32,12 @@ ingestion:
 app:
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:5173,http://127.0.0.1:5173}
+  ai:
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-2.0-flash}
+  reports:
+    email:
+      from: ${REPORTS_EMAIL_FROM:}
+    scheduler:
+      fixed-delay-ms: ${REPORTS_SCHEDULER_FIXED_DELAY_MS:600000}

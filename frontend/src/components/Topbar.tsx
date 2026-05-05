@@ -36,6 +36,10 @@ const PAGE_COPY: Record<string, { title: string; subtitle: string }> = {
         title: "Rules",
         subtitle: "Tune detection severity and remediation behavior for operational fit.",
     },
+    "/reports": {
+        title: "Reports",
+        subtitle: "Generate executive summaries, manage weekly delivery, and review reporting history.",
+    },
 };
 
 const Topbar = () => {

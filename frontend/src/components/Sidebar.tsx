@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, AlertTriangle, Wrench, Database, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, AlertTriangle, Wrench, Database, SlidersHorizontal, FileText } from "lucide-react";
 import { useEffect } from "react";
 
 const Sidebar = () => {
@@ -78,6 +78,11 @@ const Sidebar = () => {
                 <Link to="/rules" className={menuClass("/rules")}>
                     <SlidersHorizontal size={18} />
                     <span className="hidden lg:inline">Rules</span>
+                </Link>
+
+                <Link to="/reports" className={menuClass("/reports")}>
+                    <FileText size={18} />
+                    <span className="hidden lg:inline">Reports</span>
                 </Link>
 
             </nav>

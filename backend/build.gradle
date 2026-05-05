@@ -30,6 +30,7 @@ dependencies {
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	implementation 'com.vladmihalcea:hibernate-types-60:2.21.1'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'software.amazon.awssdk:ec2:2.25.20'

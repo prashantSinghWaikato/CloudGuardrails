@@ -158,3 +158,76 @@ export interface AccountActivationFormData {
     roleArn: string;
     externalId: string;
 }
+
+export interface ExecutiveReportGenerationRequest {
+    from: string;
+    to: string;
+}
+
+export interface ExecutiveReportAccountRisk {
+    accountId: string;
+    accountName: string;
+    openFindings: number;
+    criticalFindings: number;
+    findingsCreated: number;
+}
+
+export interface ExecutiveReportRuleTrend {
+    ruleName: string;
+    count: number;
+}
+
+export interface ExecutiveReportMetrics {
+    totalFindings: number;
+    openFindings: number;
+    criticalFindings: number;
+    closedFindings: number;
+    remediationSuccessCount: number;
+    remediationFailureCount: number;
+    accountsScanned: number;
+    staleAccounts: number;
+    topAccounts: ExecutiveReportAccountRisk[];
+    topRules: ExecutiveReportRuleTrend[];
+    coverageNotes: string[];
+}
+
+export interface ExecutiveReportRun {
+    id: number;
+    definitionId: number | null;
+    reportType: string;
+    reportName: string;
+    triggerType: string;
+    requestedBy: string | null;
+    periodStart: string | null;
+    periodEnd: string | null;
+    status: string;
+    aiProvider: string | null;
+    emailStatus: string | null;
+    emailedAt: string | null;
+    createdAt: string | null;
+    summaryText: string | null;
+    metrics: ExecutiveReportMetrics;
+    recipients: string[];
+    errorMessage: string | null;
+}
+
+export interface ExecutiveReportSchedule {
+    id: number | null;
+    reportType: string;
+    name: string;
+    enabled: boolean;
+    dayOfWeek: number;
+    scheduledTime: string | null;
+    timeZone: string | null;
+    recipients: string[];
+    nextRunAt: string | null;
+    lastRunAt: string | null;
+}
+
+export interface ExecutiveReportScheduleRequest {
+    enabled: boolean;
+    dayOfWeek: number;
+    scheduledTime: string;
+    timeZone: string;
+    recipients: string[];
+}

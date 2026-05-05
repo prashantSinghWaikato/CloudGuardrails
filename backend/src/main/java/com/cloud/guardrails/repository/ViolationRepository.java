@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public interface ViolationRepository extends JpaRepository<Violation, Long> {
 
+    List<Violation> findByOrganizationId(Long orgId);
+
     // ================= BASE (ORG + ACCOUNT) =================
 
     Page<Violation> findByOrganizationIdAndCloudAccount_IdIn(
