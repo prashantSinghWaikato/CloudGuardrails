@@ -45,6 +45,21 @@ const formatDateTime = (value: string | null | undefined) => {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
 
+const normalizeSummaryText = (value: string | null | undefined) => {
+  if (!value) {
+    return "No summary generated.";
+  }
+
+  return value
+    .replaceAll(/\*\*/g, "")
+    .replaceAll(/^>\s?/gm, "")
+    .replaceAll(/^#{1,6}\s*/gm, "")
+    .replaceAll(/^["']+|["']+$/gm, "")
+    .replaceAll(/\r/g, "")
+    .replaceAll(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
 const ReportsPage = () => {
   const [runs, setRuns] = useState<ExecutiveReportRun[]>([]);
   const [schedule, setSchedule] = useState<ExecutiveReportSchedule | null>(null);
@@ -171,6 +186,7 @@ const ReportsPage = () => {
       };
       let y = margin;
       let pageNumber = 1;
+      const summaryText = normalizeSummaryText(run.summaryText);
 
       const ensureSpace = (needed = 24) => {
         if (y + needed > pageHeight - margin) {
@@ -189,6 +205,15 @@ const ReportsPage = () => {
           pdf.text(line, x, y);
           y += lineHeight;
         });
+      };
+
+      const estimateWrappedHeight = (text: string, fontSize: number, lineHeight: number, width: number) => {
+        pdf.setFontSize(fontSize);
+        const lines = pdf.splitTextToSize(text, width);
+        return {
+          lines,
+          height: Math.max(lineHeight, lines.length * lineHeight),
+        };
       };
 
       const drawFooter = () => {
@@ -275,13 +300,16 @@ const ReportsPage = () => {
       y += 94;
 
       drawSectionTitle("Executive Overview");
-      ensureSpace(90);
+      const overviewBoxWidth = contentWidth - 32;
+      const overviewLayout = estimateWrappedHeight(summaryText, 11, 16, overviewBoxWidth);
+      const overviewBoxHeight = Math.max(84, overviewLayout.height + 28);
+      ensureSpace(overviewBoxHeight + 10);
       pdf.setFillColor(...colors.accentSoft);
       pdf.setDrawColor(190, 242, 100);
-      pdf.roundedRect(margin, y - 4, contentWidth, 84, 12, 12, "FD");
+      pdf.roundedRect(margin, y - 4, contentWidth, overviewBoxHeight, 12, 12, "FD");
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(...colors.body);
-      addWrappedText(run.summaryText || "No summary generated.", margin + 16, 11, 16, contentWidth - 32);
+      addWrappedText(summaryText, margin + 16, 11, 16, overviewBoxWidth);
       y += 14;
 
       drawSectionTitle("Highest-Risk Accounts");
