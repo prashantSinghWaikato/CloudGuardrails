@@ -307,7 +307,7 @@ const ReportsPage = () => {
       drawSectionTitle("Executive Overview");
       const overviewBoxWidth = contentWidth - 32;
       const overviewLayout = estimateWrappedHeight(summaryText, 11, 16, overviewBoxWidth);
-      const overviewBoxHeight = Math.max(84, overviewLayout.height + 28);
+      const overviewBoxHeight = Math.max(40, overviewLayout.height + 18);
       ensureSpace(overviewBoxHeight + 10);
       const overviewTop = y - 4;
       pdf.setFillColor(...colors.accentSoft);
@@ -316,7 +316,7 @@ const ReportsPage = () => {
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(...colors.body);
       addWrappedText(summaryText, margin + 16, 11, 16, overviewBoxWidth);
-      y = Math.max(y + 14, overviewTop + overviewBoxHeight + 18);
+      y = Math.max(y + 8, overviewTop + overviewBoxHeight + 12);
 
       drawSectionTitle("Highest-Risk Accounts");
       pdf.setFont("helvetica", "normal");
