@@ -55,6 +55,11 @@ const normalizeSummaryText = (value: string | null | undefined) => {
     .replaceAll(/^>\s?/gm, "")
     .replaceAll(/^#{1,6}\s*/gm, "")
     .replaceAll(/^["']+|["']+$/gm, "")
+    .replaceAll(/^Executive Overview\s*$/gim, "")
+    .replaceAll(/^Key Metrics\s*$/gim, "")
+    .replaceAll(/^Highest-Risk Accounts\s*$/gim, "")
+    .replaceAll(/^Top Recurring Issues\s*$/gim, "")
+    .replaceAll(/^Recommended Actions\s*$/gim, "")
     .replaceAll(/\r/g, "")
     .replaceAll(/\n{3,}/g, "\n\n")
     .trim();
@@ -304,13 +309,14 @@ const ReportsPage = () => {
       const overviewLayout = estimateWrappedHeight(summaryText, 11, 16, overviewBoxWidth);
       const overviewBoxHeight = Math.max(84, overviewLayout.height + 28);
       ensureSpace(overviewBoxHeight + 10);
+      const overviewTop = y - 4;
       pdf.setFillColor(...colors.accentSoft);
       pdf.setDrawColor(190, 242, 100);
-      pdf.roundedRect(margin, y - 4, contentWidth, overviewBoxHeight, 12, 12, "FD");
+      pdf.roundedRect(margin, overviewTop, contentWidth, overviewBoxHeight, 12, 12, "FD");
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(...colors.body);
       addWrappedText(summaryText, margin + 16, 11, 16, overviewBoxWidth);
-      y += 14;
+      y = Math.max(y + 14, overviewTop + overviewBoxHeight + 18);
 
       drawSectionTitle("Highest-Risk Accounts");
       pdf.setFont("helvetica", "normal");
