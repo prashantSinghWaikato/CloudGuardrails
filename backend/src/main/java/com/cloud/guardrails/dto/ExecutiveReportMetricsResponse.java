@@ -12,6 +12,10 @@ public class ExecutiveReportMetricsResponse {
     long openFindings;
     long criticalFindings;
     long closedFindings;
+    long previousTotalFindings;
+    long previousOpenFindings;
+    long previousCriticalFindings;
+    long previousClosedFindings;
     long remediationSuccessCount;
     long remediationFailureCount;
     int accountsScanned;

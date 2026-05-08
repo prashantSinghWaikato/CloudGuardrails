@@ -214,9 +214,15 @@ public class ExecutiveReportService {
         List<CloudAccount> accounts = cloudAccountRepository.findByOrganizationId(orgId);
         List<AccountScanRun> scanRuns = accountScanRunRepository
                 .findByOrganizationIdAndStartedAtGreaterThanEqualAndStartedAtLessThan(orgId, from, to);
+        Duration reportingWindow = Duration.between(from, to);
+        LocalDateTime previousFrom = from.minus(reportingWindow);
+        LocalDateTime previousTo = from;
 
         List<Violation> findingsInPeriod = violations.stream()
                 .filter(v -> withinRange(v.getCreatedAt(), from, to))
+                .toList();
+        List<Violation> previousFindings = violations.stream()
+                .filter(v -> withinRange(v.getCreatedAt(), previousFrom, previousTo))
                 .toList();
 
         long totalFindings = findingsInPeriod.size();
@@ -228,6 +234,20 @@ public class ExecutiveReportService {
         long closedFindings = violations.stream()
                 .filter(v -> "FIXED".equalsIgnoreCase(v.getStatus()))
                 .filter(v -> withinRange(v.getUpdatedAt(), from, to))
+                .count();
+        long previousTotalFindings = previousFindings.size();
+        long previousOpenFindings = violations.stream()
+                .filter(v -> "OPEN".equalsIgnoreCase(v.getStatus()))
+                .filter(v -> v.getCreatedAt() != null && v.getCreatedAt().isBefore(from))
+                .count();
+        long previousCriticalFindings = violations.stream()
+                .filter(v -> "OPEN".equalsIgnoreCase(v.getStatus()))
+                .filter(v -> "CRITICAL".equalsIgnoreCase(v.getSeverity()))
+                .filter(v -> v.getCreatedAt() != null && v.getCreatedAt().isBefore(from))
+                .count();
+        long previousClosedFindings = violations.stream()
+                .filter(v -> "FIXED".equalsIgnoreCase(v.getStatus()))
+                .filter(v -> withinRange(v.getUpdatedAt(), previousFrom, previousTo))
                 .count();
 
         long remediationSuccessCount = remediations.stream()
@@ -303,6 +323,10 @@ public class ExecutiveReportService {
                 .openFindings(openFindings)
                 .criticalFindings(criticalFindings)
                 .closedFindings(closedFindings)
+                .previousTotalFindings(previousTotalFindings)
+                .previousOpenFindings(previousOpenFindings)
+                .previousCriticalFindings(previousCriticalFindings)
+                .previousClosedFindings(previousClosedFindings)
                 .remediationSuccessCount(remediationSuccessCount)
                 .remediationFailureCount(remediationFailureCount)
                 .accountsScanned(accountsScanned)

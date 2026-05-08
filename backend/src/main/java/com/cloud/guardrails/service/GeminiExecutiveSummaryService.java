@@ -29,7 +29,7 @@ public class GeminiExecutiveSummaryService {
     @Value("${app.ai.gemini.api-key:}")
     private String apiKey;
 
-    @Value("${app.ai.gemini.model:gemini-2.0-flash}")
+    @Value("${app.ai.gemini.model:gemini-2.5-flash}")
     private String model;
 
     public SummaryResult generate(LocalDateTime from, LocalDateTime to, ExecutiveReportMetricsResponse metrics) {
@@ -89,7 +89,7 @@ public class GeminiExecutiveSummaryService {
                                    ExecutiveReportMetricsResponse metrics,
                                    String reason) {
         StringBuilder summary = new StringBuilder();
-        summary.append("Executive overview\n");
+        summary.append("Executive Overview\n");
         summary.append("From ")
                 .append(PERIOD_FORMAT.format(from))
                 .append(" to ")
@@ -102,36 +102,73 @@ public class GeminiExecutiveSummaryService {
                 .append(metrics.getCriticalFindings())
                 .append(" critical issues. ")
                 .append(metrics.getClosedFindings())
-                .append(" findings were closed during the period.\n\n");
+                .append(" findings were closed during the period.");
 
+        if (metrics.getPreviousTotalFindings() > 0 || metrics.getPreviousClosedFindings() > 0) {
+            summary.append(" Compared with the prior period, findings moved from ")
+                    .append(metrics.getPreviousTotalFindings())
+                    .append(" to ")
+                    .append(metrics.getTotalFindings())
+                    .append(", while closed findings moved from ")
+                    .append(metrics.getPreviousClosedFindings())
+                    .append(" to ")
+                    .append(metrics.getClosedFindings())
+                    .append(".");
+        }
+        summary.append("\n\n");
+
+        summary.append("Key Risks\n");
         if (!metrics.getTopAccounts().isEmpty()) {
             var account = metrics.getTopAccounts().get(0);
-            summary.append("Highest-risk account\n");
-            summary.append(account.getAccountName())
+            summary.append("- Highest-risk account: ")
+                    .append(account.getAccountName())
                     .append(" (")
                     .append(account.getAccountId())
                     .append(") currently carries ")
                     .append(account.getOpenFindings())
                     .append(" open findings and ")
                     .append(account.getCriticalFindings())
-                    .append(" critical issues.\n\n");
+                    .append(" critical issues.\n");
         }
 
         if (!metrics.getTopRules().isEmpty()) {
-            summary.append("Recurring issues\n");
-            metrics.getTopRules().forEach(rule -> summary.append("- ")
-                    .append(rule.getRuleName())
-                    .append(": ")
-                    .append(rule.getCount())
-                    .append('\n'));
-            summary.append('\n');
+            summary.append("- Repeated control gaps this period: ");
+            summary.append(
+                    metrics.getTopRules().stream()
+                            .limit(3)
+                            .map(rule -> rule.getRuleName() + " (" + rule.getCount() + ")")
+                            .reduce((left, right) -> left + ", " + right)
+                            .orElse("none")
+            );
+            summary.append(".\n");
         }
 
-        summary.append("Coverage notes\n");
-        metrics.getCoverageNotes().forEach(note -> summary.append("- ").append(note).append('\n'));
+        if (!metrics.getCoverageNotes().isEmpty()) {
+            summary.append("- Coverage note: ")
+                    .append(metrics.getCoverageNotes().get(0))
+                    .append('\n');
+        }
+
+        summary.append("\nRecommended Actions\n");
+        if (!metrics.getTopAccounts().isEmpty()) {
+            summary.append("- Prioritize review of ")
+                    .append(metrics.getTopAccounts().get(0).getAccountName())
+                    .append(" because it currently concentrates the most operational risk.\n");
+        }
+        if (!metrics.getTopRules().isEmpty()) {
+            summary.append("- Address the recurring gap around ")
+                    .append(metrics.getTopRules().get(0).getRuleName())
+                    .append(" to reduce repeat findings.\n");
+        }
+        if (metrics.getStaleAccounts() > 0) {
+            summary.append("- Restore scan coverage for stale accounts before the next reporting cycle.\n");
+        } else {
+            summary.append("- Maintain current scan coverage across all onboarded accounts.\n");
+        }
 
         if (reason != null && !reason.isBlank()) {
-            summary.append("\nAI narrative fallback used: ").append(reason);
+            summary.append("\nSystem Note\n");
+            summary.append("- AI narrative fallback used: ").append(reason);
         }
 
         return new SummaryResult("TEMPLATE", summary.toString().trim(), reason);
@@ -147,14 +184,15 @@ public class GeminiExecutiveSummaryService {
                 You are writing a concise enterprise cloud security weekly executive summary.
                 Use only the facts provided. Do not invent numbers, causes, or systems.
                 Keep the tone professional and operational, not marketing.
-                Structure the response with these headings:
+                Use exactly these headings and plain text only:
                 Executive Overview
-                Key Metrics
-                Highest-Risk Accounts
-                Top Recurring Issues
+                Key Risks
                 Recommended Actions
-
-                Keep it under 300 words. Mention exact counts where relevant.
+                Under Executive Overview: write one short paragraph with the most important changes and week-over-week signal.
+                Under Key Risks: write 2 to 3 bullet points.
+                Under Recommended Actions: write 2 to 3 bullet points.
+                Mention exact counts where relevant. Do not wrap the response in quotes. Do not use markdown bold.
+                Keep it under 260 words.
 
                 Facts:
                 %s

@@ -65,6 +65,49 @@ const normalizeSummaryText = (value: string | null | undefined) => {
     .trim();
 };
 
+const parseSummarySections = (value: string | null | undefined) => {
+  const cleaned = normalizeSummaryText(value);
+  const lines = cleaned.split("\n").map((line) => line.trim()).filter(Boolean);
+  const sections: Record<string, string[]> = {
+    overview: [],
+    risks: [],
+    actions: [],
+    other: [],
+  };
+
+  let current: keyof typeof sections = "overview";
+
+  for (const line of lines) {
+    const normalized = line.toLowerCase().replace(/:$/, "");
+
+    if (normalized === "executive overview") {
+      current = "overview";
+      continue;
+    }
+    if (normalized === "key risks") {
+      current = "risks";
+      continue;
+    }
+    if (normalized === "recommended actions") {
+      current = "actions";
+      continue;
+    }
+    if (normalized === "system note") {
+      current = "other";
+      continue;
+    }
+
+    sections[current].push(line.replace(/^- /, "").trim());
+  }
+
+  return {
+    overview: sections.overview.join(" "),
+    risks: sections.risks,
+    actions: sections.actions,
+    other: sections.other,
+  };
+};
+
 const ReportsPage = () => {
   const [runs, setRuns] = useState<ExecutiveReportRun[]>([]);
   const [schedule, setSchedule] = useState<ExecutiveReportSchedule | null>(null);
@@ -191,7 +234,8 @@ const ReportsPage = () => {
       };
       let y = margin;
       let pageNumber = 1;
-      const summaryText = normalizeSummaryText(run.summaryText);
+      const summarySections = parseSummarySections(run.summaryText);
+      const summaryText = summarySections.overview || normalizeSummaryText(run.summaryText);
 
       const ensureSpace = (needed = 24) => {
         if (y + needed > pageHeight - margin) {
@@ -317,6 +361,45 @@ const ReportsPage = () => {
       pdf.setTextColor(...colors.body);
       addWrappedText(summaryText, margin + 16, 11, 16, overviewBoxWidth);
       y = Math.max(y + 8, overviewTop + overviewBoxHeight + 12);
+
+      drawSectionTitle("Key Risks");
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...colors.body);
+      if (summarySections.risks.length === 0) {
+        addWrappedText("No explicit AI risk summary was generated for this period.", margin, 11, 16);
+      } else {
+        summarySections.risks.forEach((risk) => {
+          ensureSpace(28);
+          pdf.setDrawColor(...colors.line);
+          pdf.setFillColor(255, 255, 255);
+          pdf.roundedRect(margin, y - 10, contentWidth, 24, 6, 6, "FD");
+          pdf.setFillColor(...colors.accent);
+          pdf.circle(margin + 12, y + 2, 3, "F");
+          addWrappedText(risk, margin + 24, 11, 16, contentWidth - 36);
+          y += 8;
+        });
+      }
+
+      drawSectionTitle("Recommended Actions");
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...colors.body);
+      if (summarySections.actions.length === 0) {
+        addWrappedText("No explicit AI actions were generated for this period.", margin, 11, 16);
+      } else {
+        summarySections.actions.forEach((action, index) => {
+          ensureSpace(34);
+          pdf.setFillColor(...colors.panel);
+          pdf.setDrawColor(...colors.line);
+          pdf.roundedRect(margin, y - 12, contentWidth, 28, 8, 8, "FD");
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(...colors.accent);
+          pdf.text(`${index + 1}.`, margin + 12, y + 4);
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(...colors.body);
+          addWrappedText(action, margin + 28, 11, 16, contentWidth - 40);
+          y += 6;
+        });
+      }
 
       drawSectionTitle("Highest-Risk Accounts");
       pdf.setFont("helvetica", "normal");
