@@ -25,7 +25,15 @@ const SEVERITY_OPTIONS: Array<Severity | typeof ALL_OPTION> = [
     "HIGH",
     "CRITICAL",
 ];
-const STATUS_OPTIONS = [ALL_OPTION, "OPEN", "FIXED"];
+const STATUS_OPTIONS = [ALL_OPTION, "OPEN", "FIXED"] as const;
+
+const getStatusOptionLabel = (statusOption: string) => {
+    if (statusOption === ALL_OPTION) {
+        return "All Statuses";
+    }
+
+    return statusOption === "FIXED" ? "Closed" : statusOption;
+};
 
 const displayStatus = (status: string) => {
     return status === "FIXED" ? "CLOSED" : status;
@@ -209,7 +217,7 @@ const ViolationTable = ({ fullView = false, data, loadingOverride }: Props) => {
                             >
                                 {STATUS_OPTIONS.map((option) => (
                                     <option key={option} value={option}>
-                                        {option === ALL_OPTION ? "All Statuses" : option}
+                                        {getStatusOptionLabel(option)}
                                     </option>
                                 ))}
                             </select>

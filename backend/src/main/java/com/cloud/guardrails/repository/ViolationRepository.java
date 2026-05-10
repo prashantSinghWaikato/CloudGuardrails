@@ -4,6 +4,8 @@ import com.cloud.guardrails.entity.Violation;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +61,21 @@ public interface ViolationRepository extends JpaRepository<Violation, Long> {
             String ruleName,
             Pageable pageable
     );
+
+    @Query("""
+            select v
+            from Violation v
+            where v.organization.id = :orgId
+              and v.cloudAccount.id in :accountIds
+              and (
+                    lower(v.resourceId) like lower(concat('%', :query, '%'))
+                    or lower(v.rule.ruleName) like lower(concat('%', :query, '%'))
+                  )
+            """)
+    Page<Violation> searchByResourceOrRule(@Param("orgId") Long orgId,
+                                           @Param("accountIds") List<Long> accountIds,
+                                           @Param("query") String query,
+                                           Pageable pageable);
 
     // ================= COUNT =================
 

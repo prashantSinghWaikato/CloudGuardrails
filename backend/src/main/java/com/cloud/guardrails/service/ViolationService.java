@@ -214,25 +214,7 @@ public class ViolationService {
             return Page.empty();
         }
 
-        Page<Violation> byResource =
-                violationRepository
-                        .findByOrganizationIdAndCloudAccount_IdInAndResourceIdContainingIgnoreCase(
-                                orgId, accountIds, query, pageable);
-
-        Page<Violation> byRule =
-                violationRepository
-                        .findByOrganizationIdAndCloudAccount_IdInAndRule_RuleNameContainingIgnoreCase(
-                                orgId, accountIds, query, pageable);
-
-        List<Violation> combined = new java.util.ArrayList<>();
-        combined.addAll(byResource.getContent());
-        combined.addAll(byRule.getContent());
-
-        return new org.springframework.data.domain.PageImpl<>(
-                combined,
-                pageable,
-                combined.size()
-        );
+        return violationRepository.searchByResourceOrRule(orgId, accountIds, query, pageable);
     }
 
     public Violation updateStatus(Long id, String status) {

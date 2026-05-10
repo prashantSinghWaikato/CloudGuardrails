@@ -265,6 +265,35 @@ const ReportsPage = () => {
         };
       };
 
+      const drawBulletCard = (text: string, tone: "plain" | "accent" = "plain") => {
+        const cardWidth = contentWidth;
+        const textX = margin + 28;
+        const textWidth = cardWidth - 40;
+        const layout = estimateWrappedHeight(text, 11, 16, textWidth);
+        const cardHeight = Math.max(34, layout.height + 16);
+        ensureSpace(cardHeight + 6);
+
+        pdf.setDrawColor(...colors.line);
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(margin, y - 10, cardWidth, cardHeight, 6, 6, "FD");
+
+        if (tone === "accent") {
+          pdf.setFillColor(...colors.accent);
+          pdf.roundedRect(margin, y - 10, 6, cardHeight, 6, 6, "F");
+        } else {
+          pdf.setFillColor(...colors.accent);
+          pdf.circle(margin + 12, y + 2, 3, "F");
+        }
+
+        const textStartY = y + 4;
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(...colors.body);
+        layout.lines.forEach((line: string, index: number) => {
+          pdf.text(line, textX, textStartY + index * 16);
+        });
+        y += cardHeight + 10;
+      };
+
       const drawFooter = () => {
         pdf.setDrawColor(...colors.line);
         pdf.line(margin, pageHeight - 28, pageWidth - margin, pageHeight - 28);
@@ -276,7 +305,7 @@ const ReportsPage = () => {
       };
 
       const drawSectionTitle = (title: string) => {
-        ensureSpace(28);
+        ensureSpace(34);
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(15);
         pdf.setTextColor(...colors.ink);
@@ -284,7 +313,7 @@ const ReportsPage = () => {
         y += 10;
         pdf.setDrawColor(...colors.line);
         pdf.line(margin, y, pageWidth - margin, y);
-        y += 18;
+        y += 16;
       };
 
       const drawMetaChip = (x: number, width: number, label: string, value: string) => {
@@ -351,7 +380,7 @@ const ReportsPage = () => {
       drawSectionTitle("Executive Overview");
       const overviewBoxWidth = contentWidth - 32;
       const overviewLayout = estimateWrappedHeight(summaryText, 11, 16, overviewBoxWidth);
-      const overviewBoxHeight = Math.max(40, overviewLayout.height + 18);
+      const overviewBoxHeight = Math.max(52, overviewLayout.height + 24);
       ensureSpace(overviewBoxHeight + 10);
       const overviewTop = y - 4;
       pdf.setFillColor(...colors.accentSoft);
@@ -359,45 +388,39 @@ const ReportsPage = () => {
       pdf.roundedRect(margin, overviewTop, contentWidth, overviewBoxHeight, 12, 12, "FD");
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(...colors.body);
-      addWrappedText(summaryText, margin + 16, 11, 16, overviewBoxWidth);
-      y = Math.max(y + 8, overviewTop + overviewBoxHeight + 12);
+      const overviewTextY = y + 10;
+      overviewLayout.lines.forEach((line: string, index: number) => {
+        pdf.text(line, margin + 16, overviewTextY + index * 16);
+      });
+      y = Math.max(overviewTextY + overviewLayout.height, overviewTop + overviewBoxHeight) + 12;
 
-      drawSectionTitle("Key Risks");
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(...colors.body);
-      if (summarySections.risks.length === 0) {
-        addWrappedText("No explicit AI risk summary was generated for this period.", margin, 11, 16);
-      } else {
+      if (summarySections.risks.length > 0) {
+        drawSectionTitle("Key Risks");
         summarySections.risks.forEach((risk) => {
-          ensureSpace(28);
-          pdf.setDrawColor(...colors.line);
-          pdf.setFillColor(255, 255, 255);
-          pdf.roundedRect(margin, y - 10, contentWidth, 24, 6, 6, "FD");
-          pdf.setFillColor(...colors.accent);
-          pdf.circle(margin + 12, y + 2, 3, "F");
-          addWrappedText(risk, margin + 24, 11, 16, contentWidth - 36);
-          y += 8;
+          drawBulletCard(risk, "plain");
         });
       }
 
-      drawSectionTitle("Recommended Actions");
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(...colors.body);
-      if (summarySections.actions.length === 0) {
-        addWrappedText("No explicit AI actions were generated for this period.", margin, 11, 16);
-      } else {
+      if (summarySections.actions.length > 0) {
+        drawSectionTitle("Recommended Actions");
         summarySections.actions.forEach((action, index) => {
-          ensureSpace(34);
+          const actionText = `${index + 1}. ${action}`;
+          const cardWidth = contentWidth;
+          const textX = margin + 16;
+          const textWidth = cardWidth - 28;
+          const layout = estimateWrappedHeight(actionText, 11, 16, textWidth);
+          const cardHeight = Math.max(36, layout.height + 18);
+          ensureSpace(cardHeight + 6);
+
           pdf.setFillColor(...colors.panel);
           pdf.setDrawColor(...colors.line);
-          pdf.roundedRect(margin, y - 12, contentWidth, 28, 8, 8, "FD");
+          pdf.roundedRect(margin, y - 10, contentWidth, cardHeight, 8, 8, "FD");
           pdf.setFont("helvetica", "bold");
           pdf.setTextColor(...colors.accent);
-          pdf.text(`${index + 1}.`, margin + 12, y + 4);
-          pdf.setFont("helvetica", "normal");
-          pdf.setTextColor(...colors.body);
-          addWrappedText(action, margin + 28, 11, 16, contentWidth - 40);
-          y += 6;
+          layout.lines.forEach((line: string, lineIndex: number) => {
+            pdf.text(line, textX, y + 6 + lineIndex * 16);
+          });
+          y += cardHeight + 10;
         });
       }
 
@@ -408,28 +431,34 @@ const ReportsPage = () => {
         addWrappedText("No account concentration for this period.", margin, 11, 16);
       } else {
         run.metrics.topAccounts.forEach((account) => {
-          ensureSpace(62);
+          const accountTitle = `${account.accountName} (${account.accountId})`;
+          const accountLineOne = `${account.openFindings} open findings`;
+          const accountLineTwo = `${account.criticalFindings} critical issues | ${account.findingsCreated} created this period`;
+          const accountTitleLayout = estimateWrappedHeight(accountTitle, 12, 16, contentWidth - 24);
+          const accountLineTwoLayout = estimateWrappedHeight(accountLineTwo, 11, 14, contentWidth - 24);
+          const accountHeight = Math.max(62, accountTitleLayout.height + accountLineTwoLayout.height + 34);
+          ensureSpace(accountHeight + 6);
+
           pdf.setDrawColor(...colors.line);
           pdf.setFillColor(255, 255, 255);
-          pdf.roundedRect(margin, y - 12, contentWidth, 52, 8, 8, "FD");
+          pdf.roundedRect(margin, y - 10, contentWidth, accountHeight, 8, 8, "FD");
           pdf.setFillColor(...colors.accent);
-          pdf.roundedRect(margin, y - 12, 6, 52, 8, 8, "F");
+          pdf.roundedRect(margin, y - 10, 6, accountHeight, 8, 8, "F");
           pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(12);
           pdf.setTextColor(...colors.ink);
-          pdf.text(`${account.accountName} (${account.accountId})`, margin + 12, y + 2);
+          accountTitleLayout.lines.forEach((line: string, index: number) => {
+            pdf.text(line, margin + 12, y + 4 + index * 16);
+          });
           pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(11);
           pdf.setTextColor(...colors.body);
-          pdf.text(
-            `${account.openFindings} open findings`,
-            margin + 12,
-            y + 20
-          );
-          pdf.text(
-            `${account.criticalFindings} critical issues | ${account.findingsCreated} created this period`,
-            margin + 12,
-            y + 36
-          );
-          y += 64;
+          const accountBodyY = y + 8 + accountTitleLayout.height;
+          pdf.text(accountLineOne, margin + 12, accountBodyY);
+          accountLineTwoLayout.lines.forEach((line: string, index: number) => {
+            pdf.text(line, margin + 12, accountBodyY + 16 + index * 14);
+          });
+          y += accountHeight + 10;
         });
       }
 
