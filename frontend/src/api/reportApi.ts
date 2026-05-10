@@ -51,3 +51,15 @@ export const fetchExecutiveReportRuns = async () => {
 
   return (await res.json()) as ExecutiveReportRun[];
 };
+
+export const runScheduledExecutiveReportNow = async () => {
+  const res = await apiFetch("/reports/executive-summary/run-scheduled-now", {
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res, "Failed to run scheduled report now"));
+  }
+
+  return (await res.json()) as ExecutiveReportRun;
+};

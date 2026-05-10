@@ -39,5 +39,8 @@ app:
   reports:
     email:
       from: ${REPORTS_EMAIL_FROM:}
+      from-name: ${REPORTS_EMAIL_FROM_NAME:Cloud Guardrails}
+      brevo:
+        api-key: ${BREVO_API_KEY:}
     scheduler:
       fixed-delay-ms: ${REPORTS_SCHEDULER_FIXED_DELAY_MS:600000}

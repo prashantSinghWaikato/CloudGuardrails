@@ -4,6 +4,7 @@ import {
   fetchExecutiveReportRuns,
   fetchExecutiveReportSchedule,
   generateExecutiveReport,
+  runScheduledExecutiveReportNow,
   updateExecutiveReportSchedule,
 } from "../api/reportApi";
 import type {
@@ -114,6 +115,7 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [runningScheduledNow, setRunningScheduledNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -130,9 +132,11 @@ const ReportsPage = () => {
   const [recipientsText, setRecipientsText] = useState("");
 
   useEffect(() => {
-    const load = async () => {
+    const load = async (background = false) => {
       try {
-        setLoading(true);
+        if (!background) {
+          setLoading(true);
+        }
         const [scheduleResponse, runResponse] = await Promise.all([
           fetchExecutiveReportSchedule(),
           fetchExecutiveReportRuns(),
@@ -149,13 +153,25 @@ const ReportsPage = () => {
         });
         setRecipientsText(scheduleResponse.recipients.join(", "));
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load reports");
+        if (!background) {
+          setError(loadError instanceof Error ? loadError.message : "Failed to load reports");
+        }
       } finally {
-        setLoading(false);
+        if (!background) {
+          setLoading(false);
+        }
       }
     };
 
     void load();
+
+    const intervalId = window.setInterval(() => {
+      void load(true);
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const handleGenerate = async () => {
@@ -207,6 +223,22 @@ const ReportsPage = () => {
       setScheduleError(saveError instanceof Error ? saveError.message : "Failed to update schedule");
     } finally {
       setSavingSchedule(false);
+    }
+  };
+
+  const handleRunScheduledNow = async () => {
+    try {
+      setRunningScheduledNow(true);
+      setError(null);
+      setSuccess(null);
+
+      const run = await runScheduledExecutiveReportNow();
+      setRuns((current) => [run, ...current.filter((item) => item.id !== run.id)].slice(0, 10));
+      setSuccess(`Scheduled report executed. Email status: ${run.emailStatus || "unknown"}.`);
+    } catch (runError) {
+      setError(runError instanceof Error ? runError.message : "Failed to run scheduled report");
+    } finally {
+      setRunningScheduledNow(false);
     }
   };
 
@@ -650,6 +682,14 @@ const ReportsPage = () => {
               className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-300/50 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {savingSchedule ? "Saving..." : "Save Schedule"}
+            </button>
+            <button
+              type="button"
+              onClick={handleRunScheduledNow}
+              disabled={runningScheduledNow}
+              className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {runningScheduledNow ? "Running..." : "Run Scheduled Now"}
             </button>
             {schedule?.nextRunAt ? (
               <p className="text-sm text-slate-400">Next run: {formatDateTime(schedule.nextRunAt)}</p>

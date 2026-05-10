@@ -33,4 +33,9 @@ public class ReportController {
     public List<ExecutiveReportResponse> getRecentRuns() {
         return executiveReportService.getRecentRuns();
     }
+
+    @PostMapping("/executive-summary/run-scheduled-now")
+    public ExecutiveReportResponse runScheduledNow() {
+        return executiveReportService.runScheduledNow();
+    }
 }

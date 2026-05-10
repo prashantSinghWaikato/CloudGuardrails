@@ -106,6 +106,26 @@ public class ExecutiveReportService {
     }
 
     @Transactional
+    public ExecutiveReportResponse runScheduledNow() {
+        Long orgId = UserContext.getOrgId();
+        ReportDefinition definition = reportDefinitionRepository.findByOrganizationIdAndReportType(orgId, REPORT_TYPE)
+                .orElseThrow(() -> new NotFoundException("Report schedule not found"));
+
+        LocalDateTime periodEnd = TimeUtils.utcNow();
+        LocalDateTime periodStart = periodEnd.minusDays(7);
+
+        return runReport(
+                definition.getOrganization(),
+                definition,
+                periodStart,
+                periodEnd,
+                "SCHEDULED",
+                UserContext.getEmail(),
+                definition.getRecipientEmails() == null ? List.of() : definition.getRecipientEmails()
+        );
+    }
+
+    @Transactional
     public void executeDueSchedules() {
         List<ReportDefinition> definitions = reportDefinitionRepository.findByEnabledTrueAndReportType(REPORT_TYPE);
         for (ReportDefinition definition : definitions) {
