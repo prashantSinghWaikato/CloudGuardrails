@@ -8,6 +8,8 @@ type Props = {
     setIsLoggedIn: (value: boolean) => void;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const Login = ({ setIsLoggedIn }: Props) => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -23,6 +25,11 @@ const Login = ({ setIsLoggedIn }: Props) => {
 
     const navigate = useNavigate();
 
+    const emailError =
+        email && !EMAIL_PATTERN.test(email.trim()) ? "Enter a valid email address." : "";
+    const passwordError =
+        password && password.length < 8 ? "Password must be at least 8 characters." : "";
+
     const handleLogin = async () => {
         setError("");
 
@@ -31,10 +38,15 @@ const Login = ({ setIsLoggedIn }: Props) => {
             return;
         }
 
+        if (emailError || passwordError) {
+            setError(emailError || passwordError);
+            return;
+        }
+
         try {
             setLoading(true);
 
-            const token = await login({ email, password });
+            const token = await login({ email: email.trim(), password });
             localStorage.setItem("token", token);
 
             const user = await fetchUser();
@@ -117,6 +129,9 @@ const Login = ({ setIsLoggedIn }: Props) => {
                                 onKeyDown={(e) => e.key === "Enter" && void handleLogin()}
                             />
                         </div>
+                        {emailError && (
+                            <p className="text-xs text-amber-300">{emailError}</p>
+                        )}
                     </label>
 
                     <label className="block space-y-2">
@@ -132,6 +147,9 @@ const Login = ({ setIsLoggedIn }: Props) => {
                                 onKeyDown={(e) => e.key === "Enter" && void handleLogin()}
                             />
                         </div>
+                        {passwordError && (
+                            <p className="text-xs text-amber-300">{passwordError}</p>
+                        )}
                     </label>
                 </div>
 
@@ -155,7 +173,7 @@ const Login = ({ setIsLoggedIn }: Props) => {
                     <button
                         type="button"
                         onClick={() => void handleLogin()}
-                        disabled={loading}
+                        disabled={loading || Boolean(emailError || passwordError)}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-20px_rgba(37,99,235,0.95)] transition hover:-translate-y-0.5 hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {loading ? "Signing in..." : "Sign In"}

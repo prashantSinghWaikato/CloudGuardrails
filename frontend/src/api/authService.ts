@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetch } from "./api";
+import { API_BASE_URL, apiFetch, readApiError } from "./api";
 
 type AuthPayload = {
     email: string;
@@ -19,13 +19,11 @@ const postAuth = async (path: string, payload: AuthPayload | SignupPayload) => {
         body: JSON.stringify(payload),
     });
 
-    const token = await res.text();
-
     if (!res.ok) {
-        throw new Error(token || "Authentication failed");
+        throw new Error(await readApiError(res, "Authentication failed"));
     }
 
-    return token;
+    return await res.text();
 };
 
 export const login = (payload: AuthPayload) => postAuth("/auth/login", payload);

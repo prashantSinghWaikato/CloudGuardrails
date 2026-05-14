@@ -8,6 +8,8 @@ type Props = {
     setIsLoggedIn: (value: boolean) => void;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const Signup = ({ setIsLoggedIn }: Props) => {
     const navigate = useNavigate();
 
@@ -18,6 +20,18 @@ const Signup = ({ setIsLoggedIn }: Props) => {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    const trimmedName = name.trim();
+    const trimmedOrganizationName = organizationName.trim();
+    const trimmedEmail = email.trim();
+    const nameError =
+        name && trimmedName.length < 2 ? "Full name must be at least 2 characters." : "";
+    const organizationError =
+        organizationName && trimmedOrganizationName.length < 2 ? "Organization must be at least 2 characters." : "";
+    const emailError =
+        email && !EMAIL_PATTERN.test(trimmedEmail) ? "Enter a valid email address." : "";
+    const passwordError =
+        password && password.length < 8 ? "Password must be at least 8 characters." : "";
 
     const handleSignup = async () => {
         setError("");
@@ -32,14 +46,19 @@ const Signup = ({ setIsLoggedIn }: Props) => {
             return;
         }
 
+        if (nameError || organizationError || emailError || passwordError) {
+            setError(nameError || organizationError || emailError || passwordError);
+            return;
+        }
+
         try {
             setLoading(true);
 
             const token = await signup({
-                name,
-                email,
+                name: trimmedName,
+                email: trimmedEmail,
                 password,
-                organizationName,
+                organizationName: trimmedOrganizationName,
             });
 
             localStorage.setItem("token", token);
@@ -122,6 +141,9 @@ const Signup = ({ setIsLoggedIn }: Props) => {
                                 placeholder="Ava Carter"
                             />
                         </div>
+                        {nameError && (
+                            <p className="text-xs text-amber-300">{nameError}</p>
+                        )}
                     </label>
 
                     <label className="block space-y-2">
@@ -135,6 +157,9 @@ const Signup = ({ setIsLoggedIn }: Props) => {
                                 placeholder="North Ridge Security"
                             />
                         </div>
+                        {organizationError && (
+                            <p className="text-xs text-amber-300">{organizationError}</p>
+                        )}
                     </label>
 
                     <label className="block space-y-2 sm:col-span-2">
@@ -148,6 +173,9 @@ const Signup = ({ setIsLoggedIn }: Props) => {
                                 placeholder="you@company.com"
                             />
                         </div>
+                        {emailError && (
+                            <p className="text-xs text-amber-300">{emailError}</p>
+                        )}
                     </label>
 
                     <label className="block space-y-2 sm:col-span-2">
@@ -163,6 +191,9 @@ const Signup = ({ setIsLoggedIn }: Props) => {
                                 onKeyDown={(e) => e.key === "Enter" && void handleSignup()}
                             />
                         </div>
+                        {passwordError && (
+                            <p className="text-xs text-amber-300">{passwordError}</p>
+                        )}
                     </label>
                 </div>
 
@@ -191,7 +222,7 @@ const Signup = ({ setIsLoggedIn }: Props) => {
 
                     <button
                         onClick={() => void handleSignup()}
-                        disabled={loading || !agree}
+                        disabled={loading || !agree || Boolean(nameError || organizationError || emailError || passwordError)}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-20px_rgba(37,99,235,0.95)] transition hover:-translate-y-0.5 hover:bg-blue-500 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-700 disabled:shadow-none disabled:opacity-60"
                     >
                         {loading ? "Creating account..." : "Create Account"}
